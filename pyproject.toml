@@ -1,0 +1,102 @@
+[tool.poetry]
+name = "rental-platform"
+version = "0.1.0"
+description = "B2B/B2C marketplace for renting equipment"
+authors = []
+readme = "README.md"
+packages = [{include = "app"}]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+fastapi = ">=0.135.2"
+uvicorn = {version = ">=0.42.0", extras = ["standard"]}
+pydantic = ">=2.12.5"
+pydantic-settings = ">=2.13.1"
+pyyaml = "*"
+tortoise-orm = {version = ">=1.1.7", extras = ["asyncpg"]}
+argon2-cffi = "*"
+pyjwt = "*"
+dadata = ">=25.10.0"
+httpx = ">=0.28.1"
+gunicorn = ">=25.1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pytest-cov = ">=7.1.0"
+anyio = {version = "*", extras = ["trio"]}
+pytest-asyncio = "*"
+ruff = ">=0.15.7"
+mypy = "*"
+pre-commit = "*"
+types-pyyaml = "*"
+email-validator = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 119
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "D1",
+    "PLR2004",
+    "ANN401",
+    "COM812",
+    "TRY003",
+    "EM101",
+    "EM102",
+    "ARG002",
+    "ARG005",
+    "ERA001",
+    "SLF001",
+    "PLR0911",
+    "PLR0913",
+    "C901",
+    "SIM108",
+    "A005",
+    "D203",
+    "D213",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "S101",
+    "PT018",
+    "SLF001",
+    "PT011",
+    "PT015",
+    "B011",
+    "PLR2004",
+    "N801",
+    "SIM117",
+]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["tortoise.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["app"]
