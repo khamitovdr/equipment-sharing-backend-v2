@@ -9,7 +9,7 @@ B2B/B2C marketplace for renting equipment. FastAPI + Tortoise ORM + PostgreSQL.
 
 ## Stack
 
-- Python 3.13, FastAPI, Pydantic v2, Tortoise ORM (asyncpg), pydantic-settings (YAML)
+- Python 3.14, FastAPI, Pydantic v2, Tortoise ORM (asyncpg), pydantic-settings (YAML)
 - Dependency management: Poetry (`pyproject.toml` + committed `poetry.lock`)
 - Linting/formatting: Ruff (replaces black, isort, flake8)
 - Type checking: mypy strict

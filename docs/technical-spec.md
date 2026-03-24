@@ -25,7 +25,7 @@ Versions below are **minimum** (lower bounds). Use the latest available at the t
 
 | Package | Min version | Purpose |
 |---------|-------------|---------|
-| Python | 3.13 | Runtime |
+| Python | 3.14 | Runtime |
 | FastAPI | ≥ 0.135.2 | HTTP framework |
 | Pydantic | ≥ 2.12.5 | Validation & serialization |
 | pydantic-settings | ≥ 2.13.1 | App configuration (YAML + env vars) |
@@ -127,7 +127,7 @@ The production image is built with a version tag passed as a build argument. Thi
 
 ```dockerfile
 # Dockerfile
-FROM python:3.13-slim AS base
+FROM python:3.14-slim AS base
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
@@ -197,7 +197,7 @@ Ruff handles both linting and formatting (replaces black + isort + flake8).
 
 ```toml
 [tool.ruff]
-target-version = "py313"
+target-version = "py314"
 line-length = 119
 
 [tool.ruff.format]
@@ -248,7 +248,7 @@ Strict mode enabled. All code must pass without `# type: ignore` comments.
 
 ```toml
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 strict = true
 warn_return_any = true
 warn_unused_configs = true

@@ -6,7 +6,7 @@
 
 **Architecture:** Domain-package style with service layer (`router → service → ORM`). Domain exceptions mapped to HTTP responses via centralized handler. JWT auth with Argon2id password hashing. Config loaded from YAML files merged by environment.
 
-**Tech Stack:** Python 3.13, FastAPI, Pydantic v2, pydantic-settings, Tortoise ORM (asyncpg), PostgreSQL, Poetry, Ruff, mypy, pytest + httpx AsyncClient.
+**Tech Stack:** Python 3.14, FastAPI, Pydantic v2, pydantic-settings, Tortoise ORM (asyncpg), PostgreSQL, Poetry, Ruff, mypy, pytest + httpx AsyncClient.
 
 **Spec:** `docs/superpowers/specs/2026-03-23-infrastructure-and-users-design.md`
 
@@ -91,7 +91,7 @@ readme = "README.md"
 packages = [{include = "app"}]
 
 [tool.poetry.dependencies]
-python = "^3.13"
+python = "^3.14"
 fastapi = ">=0.135.2"
 uvicorn = {version = ">=0.42.0", extras = ["standard"]}
 pydantic = ">=2.12.5"
@@ -120,7 +120,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py314"
 line-length = 119
 
 [tool.ruff.format]
@@ -163,7 +163,7 @@ ignore = [
 ]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
@@ -297,7 +297,7 @@ volumes:
 - [ ] **Step 4: Create `Dockerfile`**
 
 ```dockerfile
-FROM python:3.13-slim AS builder
+FROM python:3.14-slim AS builder
 
 RUN pip install --no-cache-dir poetry && \
     poetry config virtualenvs.create false
@@ -307,14 +307,14 @@ WORKDIR /app
 COPY pyproject.toml poetry.lock ./
 RUN poetry install --only main --no-interaction --no-ansi
 
-FROM python:3.13-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
 
 WORKDIR /app
 
-COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
+COPY --from=builder /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
 

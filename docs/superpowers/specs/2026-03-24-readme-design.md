@@ -36,7 +36,7 @@ Two sub-sections:
 
 ### 4. Getting Started
 
-- **Prerequisites:** Python 3.13+, Poetry, go-task, Docker & Docker Compose.
+- **Prerequisites:** Python 3.14+, Poetry, go-task, Docker & Docker Compose.
 - **Setup:** clone, `cp .env.example .env`, `task setup`.
 - **Run:** `task run`, mention Swagger UI at `/docs`.
 

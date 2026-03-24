@@ -8,7 +8,7 @@ Built with FastAPI, Tortoise ORM, and PostgreSQL.
 
 | Layer | Technology |
 |-------|-----------|
-| Language | Python 3.13 |
+| Language | Python 3.14 |
 | Framework | FastAPI + Pydantic v2 |
 | ORM | Tortoise ORM (asyncpg) |
 | Database | PostgreSQL |
@@ -53,7 +53,7 @@ docs/                   # Business logic and technical specifications
 
 ### Prerequisites
 
-- Python 3.13+
+- Python 3.14+
 - [Poetry](https://python-poetry.org/docs/#installation)
 - [go-task](https://taskfile.dev/installation/)
 - Docker & Docker Compose

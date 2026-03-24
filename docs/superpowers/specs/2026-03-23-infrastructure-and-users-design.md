@@ -28,7 +28,7 @@ poetry.lock                 # Pinned deps (committed)
 Taskfile.yml                # go-task commands (from tech spec verbatim)
 docker-compose.yml          # Dev PostgreSQL only
 docker-compose.prod.yml     # Prod: db + app (gunicorn + uvicorn workers)
-Dockerfile                  # Multi-stage, python:3.13-slim, APP_VERSION build arg
+Dockerfile                  # Multi-stage, python:3.14-slim, APP_VERSION build arg
 .pre-commit-config.yaml     # lint:fix + mypy pre-commit, pytest pre-push
 .env.example                # Template for required env vars
 ```
