@@ -7,7 +7,7 @@ from app.core.enums import OrderStatus
 
 
 class Order(Model):
-    id = fields.UUIDField(pk=True)
+    id = fields.UUIDField(primary_key=True)
     listing: Any = fields.ForeignKeyField("models.Listing", related_name="orders")
     organization: Any = fields.ForeignKeyField("models.Organization", related_name="orders")
     requester: Any = fields.ForeignKeyField("models.User", related_name="orders")

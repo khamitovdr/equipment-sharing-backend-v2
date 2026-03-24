@@ -104,6 +104,9 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 addopts = ["-p", "no:anyio"]
 env = ["APP_ENV=test"]
+filterwarnings = [
+    "ignore::tortoise.warnings.TortoiseLoopSwitchWarning",
+]
 
 [tool.coverage.run]
 source = ["app"]

@@ -4,4 +4,4 @@ database:
   password: rental
 
 jwt:
-  secret: test-secret-not-for-production
+  secret: test-secret-not-for-production-xx

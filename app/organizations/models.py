@@ -7,7 +7,7 @@ from app.core.enums import MembershipRole, MembershipStatus, OrganizationStatus
 
 
 class Organization(Model):
-    id = fields.UUIDField(pk=True)
+    id = fields.UUIDField(primary_key=True)
     inn = fields.CharField(max_length=12, unique=True)
     short_name = fields.CharField(max_length=255, null=True)
     full_name = fields.CharField(max_length=512, null=True)
@@ -30,7 +30,7 @@ class Organization(Model):
 
 
 class Membership(Model):
-    id = fields.UUIDField(pk=True)
+    id = fields.UUIDField(primary_key=True)
     user: Any = fields.ForeignKeyField("models.User", related_name="memberships")
     organization: Any = fields.ForeignKeyField("models.Organization", related_name="memberships")
     role = fields.CharEnumField(MembershipRole, max_length=20)
