@@ -16,8 +16,8 @@ tortoise-orm = {version = ">=1.1.7", extras = ["asyncpg"]}
 argon2-cffi = "*"
 pyjwt = "*"
 dadata = ">=25.10.0"
-httpx = ">=0.28.1"
 gunicorn = ">=25.1.0"
+email-validator = "*"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
@@ -26,7 +26,7 @@ pytest-asyncio = "*"
 ruff = ">=0.15.7"
 mypy = "*"
 pre-commit = "*"
-email-validator = "*"
+httpx = ">=0.28.1"
 pytest-env = "^1.6.0"
 
 [build-system]
