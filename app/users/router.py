@@ -3,15 +3,16 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from app.core.dependencies import require_active_user, require_platform_admin
+from app.core.dependencies import require_active_user, require_platform_admin, require_platform_owner
 from app.users import service
 from app.users.models import User
 from app.users.schemas import (
+    AdminRoleUpdate,
     LoginRequest,
+    PrivilegeUpdate,
     TokenResponse,
     UserCreate,
     UserRead,
-    UserRoleUpdate,
     UserUpdate,
 )
 
@@ -49,7 +50,16 @@ async def get_user(user_id: UUID) -> User:
 @router.patch("/private/users/{user_id}/role", response_model=UserRead)
 async def change_role(
     user_id: UUID,
-    data: UserRoleUpdate,
-    acting_user: Annotated[User, Depends(require_platform_admin)],
+    data: AdminRoleUpdate,
+    _admin: Annotated[User, Depends(require_platform_admin)],
 ) -> User:
-    return await service.change_role(user_id, data, acting_user)
+    return await service.change_user_role(user_id, data)
+
+
+@router.patch("/private/users/{user_id}/privilege", response_model=UserRead)
+async def change_privilege(
+    user_id: UUID,
+    data: PrivilegeUpdate,
+    _owner: Annotated[User, Depends(require_platform_owner)],
+) -> User:
+    return await service.change_privilege(user_id, data)

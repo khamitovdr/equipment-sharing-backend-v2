@@ -441,7 +441,7 @@ async def test_non_admin_rejected(
 
 
 @pytest.mark.anyio
-async def test_admin_cannot_assign_admin_role(
+async def test_role_route_rejects_admin_value(
     client: AsyncClient,
     create_user: Any,
     admin_user: tuple[dict[str, Any], str],
@@ -453,11 +453,11 @@ async def test_admin_cannot_assign_admin_role(
         json={"role": "admin"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 422
 
 
 @pytest.mark.anyio
-async def test_admin_cannot_assign_owner_role(
+async def test_role_route_rejects_owner_value(
     client: AsyncClient,
     create_user: Any,
     admin_user: tuple[dict[str, Any], str],
@@ -469,11 +469,14 @@ async def test_admin_cannot_assign_owner_role(
         json={"role": "owner"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 422
+
+
+# ── Privilege route (owner only) ────────────────────────
 
 
 @pytest.mark.anyio
-async def test_owner_assigns_admin_role(
+async def test_owner_assigns_admin_privilege(
     client: AsyncClient,
     create_user: Any,
     owner_user: tuple[dict[str, Any], str],
@@ -481,7 +484,7 @@ async def test_owner_assigns_admin_role(
     target, _ = await create_user(email="t4@example.com")
     _, owner_token = owner_user
     resp = await client.patch(
-        f"/private/users/{target['id']}/role",
+        f"/private/users/{target['id']}/privilege",
         json={"role": "admin"},
         headers={"Authorization": f"Bearer {owner_token}"},
     )
@@ -490,18 +493,64 @@ async def test_owner_assigns_admin_role(
 
 
 @pytest.mark.anyio
-async def test_owner_assigns_any_role(
+async def test_owner_assigns_owner_privilege(
     client: AsyncClient,
     create_user: Any,
     owner_user: tuple[dict[str, Any], str],
 ) -> None:
     target, _ = await create_user(email="t5@example.com")
     _, owner_token = owner_user
-    for role in ["admin", "user", "suspended", "owner"]:
-        resp = await client.patch(
-            f"/private/users/{target['id']}/role",
-            json={"role": role},
-            headers={"Authorization": f"Bearer {owner_token}"},
-        )
-        assert resp.status_code == 200
-        assert resp.json()["role"] == role
+    resp = await client.patch(
+        f"/private/users/{target['id']}/privilege",
+        json={"role": "owner"},
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["role"] == "owner"
+
+
+@pytest.mark.anyio
+async def test_admin_rejected_from_privilege_route(
+    client: AsyncClient,
+    create_user: Any,
+    admin_user: tuple[dict[str, Any], str],
+) -> None:
+    target, _ = await create_user(email="t6@example.com")
+    _, admin_token = admin_user
+    resp = await client.patch(
+        f"/private/users/{target['id']}/privilege",
+        json={"role": "admin"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_regular_user_rejected_from_privilege_route(
+    client: AsyncClient,
+    create_user: Any,
+) -> None:
+    target, _ = await create_user(email="t7@example.com")
+    _, regular_token = await create_user(email="regular2@example.com")
+    resp = await client.patch(
+        f"/private/users/{target['id']}/privilege",
+        json={"role": "admin"},
+        headers={"Authorization": f"Bearer {regular_token}"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_privilege_route_rejects_user_role(
+    client: AsyncClient,
+    create_user: Any,
+    owner_user: tuple[dict[str, Any], str],
+) -> None:
+    target, _ = await create_user(email="t8@example.com")
+    _, owner_token = owner_user
+    resp = await client.patch(
+        f"/private/users/{target['id']}/privilege",
+        json={"role": "user"},
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert resp.status_code == 422

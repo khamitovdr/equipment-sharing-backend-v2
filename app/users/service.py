@@ -6,11 +6,10 @@ from app.core.exceptions import (
     AlreadyExistsError,
     InvalidCredentialsError,
     NotFoundError,
-    PermissionDeniedError,
 )
 from app.core.security import create_access_token, hash_password, verify_password
 from app.users.models import User
-from app.users.schemas import TokenResponse, UserCreate, UserRoleUpdate, UserUpdate
+from app.users.schemas import AdminRoleUpdate, PrivilegeUpdate, TokenResponse, UserCreate, UserUpdate
 
 
 async def register(data: UserCreate) -> TokenResponse:
@@ -67,9 +66,14 @@ async def update_me(user: User, data: UserUpdate) -> User:
     return user
 
 
-async def change_role(user_id: UUID, data: UserRoleUpdate, acting_user: User) -> User:
-    if data.role in (UserRole.ADMIN, UserRole.OWNER) and acting_user.role != UserRole.OWNER:
-        raise PermissionDeniedError("Only platform owner can assign admin or owner roles")
+async def change_user_role(user_id: UUID, data: AdminRoleUpdate) -> User:
+    user = await get_by_id(user_id)
+    user.role = data.role
+    await user.save()
+    return user
+
+
+async def change_privilege(user_id: UUID, data: PrivilegeUpdate) -> User:
     user = await get_by_id(user_id)
     user.role = data.role
     await user.save()

@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Self
+from typing import Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, model_validator
@@ -101,8 +101,12 @@ class UserRead(BaseModel):
     created_at: datetime
 
 
-class UserRoleUpdate(BaseModel):
-    role: UserRole
+class AdminRoleUpdate(BaseModel):
+    role: Literal[UserRole.USER, UserRole.SUSPENDED]
+
+
+class PrivilegeUpdate(BaseModel):
+    role: Literal[UserRole.ADMIN, UserRole.OWNER]
 
 
 class LoginRequest(BaseModel):
