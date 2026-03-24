@@ -1,0 +1,10 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: rental
+      POSTGRES_PASSWORD: rental
+      POSTGRES_DB: rental_test
+    ports:
+      - "5433:5432"
+

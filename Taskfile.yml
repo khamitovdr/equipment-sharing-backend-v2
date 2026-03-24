@@ -13,22 +13,39 @@ tasks:
       - poetry run pre-commit install
       - poetry run pre-commit install --hook-type pre-push
       - task: infra:up
+      - task: test:up
 
-  # ── Infrastructure ─────────────────────────────────────
+  # ── Dev Infrastructure ────────────────────────────────
   infra:up:
     desc: Start dev infrastructure (DB)
     cmds:
-      - docker compose up -d
+      - docker compose -f docker-compose.dev.yml up -d
 
   infra:down:
     desc: Stop dev infrastructure
     cmds:
-      - docker compose down
+      - docker compose -f docker-compose.dev.yml down
 
   infra:reset:
     desc: Stop dev infrastructure and remove volumes
     cmds:
-      - docker compose down -v
+      - docker compose -f docker-compose.dev.yml down -v
+
+  # ── Test Infrastructure ───────────────────────────────
+  test:up:
+    desc: Start test infrastructure (DB on port 5433)
+    cmds:
+      - docker compose -f docker-compose.test.yml up -d
+
+  test:down:
+    desc: Stop test infrastructure
+    cmds:
+      - docker compose -f docker-compose.test.yml down
+
+  test:reset:
+    desc: Stop test infrastructure and remove volumes
+    cmds:
+      - docker compose -f docker-compose.test.yml down -v
 
   # ── Run ────────────────────────────────────────────────
   run:
@@ -58,16 +75,19 @@ tasks:
   # ── Testing ────────────────────────────────────────────
   test:
     desc: Run full test suite
+    deps: [test:up]
     cmds:
       - poetry run pytest
 
   test:cov:
     desc: Run tests with coverage report
+    deps: [test:up]
     cmds:
       - poetry run pytest --cov=app --cov-report=html --cov-report=term
 
   test:lf:
     desc: Re-run last failed tests
+    deps: [test:up]
     cmds:
       - poetry run pytest --lf
 

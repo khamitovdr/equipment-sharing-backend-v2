@@ -1,5 +1,6 @@
 database:
   name: rental_test
+  port: 5433
   password: rental
 
 jwt:
