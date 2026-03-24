@@ -31,8 +31,8 @@ Single table mapping layers (Language, Framework, ORM, Database, Auth, Config, E
 
 Two sub-sections:
 
-- **Project Layout** — directory tree showing `app/` (with `core/`, `users/`, `organizations/`, `listings/`, `orders/`), `config/`, `tests/`, `docs/`.
-- **Domain Modules** — table with module name, responsibility, and API prefix for each: Users, Organizations, Listings, Orders, Private.
+- **Project Layout** — directory tree showing `app/` (with `core/`, `users/`, `organizations/`, `listings/`, `orders/`), `config/`, `tests/`, `docs/`. Represents the target structure per spec (some modules are partially implemented).
+- **Domain Modules** — table with module name, responsibility, and API prefix for each: Users, Organizations, Listings, Orders, Private. Describes the full planned system, not just what is currently wired in `main.py`.
 
 ### 4. Getting Started
 
@@ -46,9 +46,9 @@ Single table of all `task` commands grouped by category (bold separator rows): S
 
 ### 6. Configuration
 
-- Explanation of layered YAML config via pydantic-settings.
+- Explanation of layered YAML config (loaded manually via pydantic BaseModel; described as "YAML + pydantic" without implying pydantic-settings is the loader).
 - Table of `APP_ENV` values (`dev`, `test`, `prod`) with which config files are loaded.
-- Secrets table: `DB_PASSWORD`, `JWT_SECRET`, `DADATA_API_KEY` with purpose descriptions.
+- Secrets table: `DATABASE_PASSWORD`, `JWT_SECRET`, `DADATA_API_KEY` with purpose descriptions (matching `.env.example`).
 - Pointer to `.env.example`.
 
 ### 7. Testing
