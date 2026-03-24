@@ -30,6 +30,7 @@ mypy = "*"
 pre-commit = "*"
 types-pyyaml = "*"
 email-validator = "*"
+pytest-env = "^1.6.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -101,6 +102,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+env = ["APP_ENV=test"]
 
 [tool.coverage.run]
 source = ["app"]

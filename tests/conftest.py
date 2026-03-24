@@ -1,7 +1,3 @@
-import os
-
-os.environ.setdefault("APP_ENV", "test")
-
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any
 
