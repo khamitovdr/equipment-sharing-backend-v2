@@ -1,5 +1,9 @@
 # Rental Platform Backend
 
+[![tests](https://github.com/khamitovdr/equipment-sharing-backend-v2/actions/workflows/test.yml/badge.svg)](https://github.com/khamitovdr/equipment-sharing-backend-v2/actions/workflows/test.yml)
+[![mypy](https://github.com/khamitovdr/equipment-sharing-backend-v2/actions/workflows/typecheck.yml/badge.svg)](https://github.com/khamitovdr/equipment-sharing-backend-v2/actions/workflows/typecheck.yml)
+[![lint](https://github.com/khamitovdr/equipment-sharing-backend-v2/actions/workflows/lint.yml/badge.svg)](https://github.com/khamitovdr/equipment-sharing-backend-v2/actions/workflows/lint.yml)
+
 B2B/B2C marketplace for renting equipment and assets. Organizations list rentable items, users browse the catalog and place rental orders, and the platform manages the full order lifecycle from request through active rental to completion.
 
 Built with FastAPI, Tortoise ORM, and PostgreSQL.
@@ -205,9 +209,10 @@ Technical specification: [`docs/technical-spec.md`](docs/technical-spec.md)
 Git hooks are installed automatically via `task setup`:
 
 - **Pre-commit:** `task lint:fix` (auto-fix + format) → `task typecheck` (mypy strict)
-- **Pre-push:** `task test` (full test suite must pass)
 
-Run everything manually before opening a PR:
+CI runs lint, typecheck, and tests with coverage on every push to `main` via GitHub Actions.
+
+Run everything locally before opening a PR:
 
 ```bash
 task ci   # lint + typecheck + test

@@ -1,0 +1,21 @@
+name: mypy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Poetry
+        run: pipx install poetry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: poetry
+      - name: Install dependencies
+        run: poetry install --no-interaction
+      - name: mypy
+        run: poetry run mypy .
