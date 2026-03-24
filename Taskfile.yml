@@ -1,0 +1,109 @@
+version: "3"
+
+vars:
+  IMAGE_NAME: rental-platform
+  VERSION: dev
+
+tasks:
+  # ── Setup ──────────────────────────────────────────────
+  setup:
+    desc: Install deps, set up hooks, start infra
+    cmds:
+      - poetry install
+      - poetry run pre-commit install
+      - poetry run pre-commit install --hook-type pre-push
+      - task: infra:up
+
+  # ── Infrastructure ─────────────────────────────────────
+  infra:up:
+    desc: Start dev infrastructure (DB)
+    cmds:
+      - docker compose up -d
+
+  infra:down:
+    desc: Stop dev infrastructure
+    cmds:
+      - docker compose down
+
+  infra:reset:
+    desc: Stop dev infrastructure and remove volumes
+    cmds:
+      - docker compose down -v
+
+  # ── Run ────────────────────────────────────────────────
+  run:
+    desc: Start the dev server
+    cmds:
+      - poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+  # ── Lint & Format ──────────────────────────────────────
+  lint:
+    desc: Check linting (no auto-fix)
+    cmds:
+      - poetry run ruff check .
+      - poetry run ruff format --check .
+
+  lint:fix:
+    desc: Auto-fix lint errors and format
+    cmds:
+      - poetry run ruff check --fix .
+      - poetry run ruff format .
+
+  # ── Type checking ──────────────────────────────────────
+  typecheck:
+    desc: Run mypy strict
+    cmds:
+      - poetry run mypy .
+
+  # ── Testing ────────────────────────────────────────────
+  test:
+    desc: Run full test suite
+    cmds:
+      - poetry run pytest
+
+  test:cov:
+    desc: Run tests with coverage report
+    cmds:
+      - poetry run pytest --cov=app --cov-report=html --cov-report=term
+
+  test:lf:
+    desc: Re-run last failed tests
+    cmds:
+      - poetry run pytest --lf
+
+  # ── Database migrations ────────────────────────────────
+  db:init:
+    desc: Create migration packages (first-time setup)
+    cmds:
+      - poetry run tortoise init
+
+  db:makemigrations:
+    desc: Detect model changes and generate migrations
+    cmds:
+      - poetry run tortoise makemigrations
+
+  db:migrate:
+    desc: Apply pending migrations
+    cmds:
+      - poetry run tortoise migrate
+
+  # ── Build & Deploy ─────────────────────────────────────
+  build:
+    desc: Build production Docker image (pass VERSION=x.y.z)
+    cmds:
+      - docker build -t {{.IMAGE_NAME}}:{{.VERSION}} --build-arg APP_VERSION={{.VERSION}} .
+      - docker tag {{.IMAGE_NAME}}:{{.VERSION}} {{.IMAGE_NAME}}:latest
+
+  deploy:
+    desc: Deploy to production (pass VERSION=x.y.z)
+    cmds:
+      - task: build
+      - docker compose -f docker-compose.prod.yml up -d
+
+  # ── CI (all checks) ───────────────────────────────────
+  ci:
+    desc: Run all checks (lint + typecheck + test)
+    cmds:
+      - task: lint
+      - task: typecheck
+      - task: test
