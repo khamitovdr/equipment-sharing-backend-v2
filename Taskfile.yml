@@ -51,45 +51,45 @@ tasks:
   run:
     desc: Start the dev server
     cmds:
-      - poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+      - poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 {{.CLI_ARGS}}
 
   # ── Lint & Format ──────────────────────────────────────
   lint:
     desc: Check linting (no auto-fix)
     cmds:
-      - poetry run ruff check .
-      - poetry run ruff format --check .
+      - poetry run ruff check . {{.CLI_ARGS}}
+      - poetry run ruff format --check . {{.CLI_ARGS}}
 
   lint:fix:
     desc: Auto-fix lint errors and format
     cmds:
-      - poetry run ruff check --fix .
-      - poetry run ruff format .
+      - poetry run ruff check --fix . {{.CLI_ARGS}}
+      - poetry run ruff format . {{.CLI_ARGS}}
 
   # ── Type checking ──────────────────────────────────────
   typecheck:
     desc: Run mypy strict
     cmds:
-      - poetry run mypy .
+      - poetry run mypy . {{.CLI_ARGS}}
 
   # ── Testing ────────────────────────────────────────────
   test:
     desc: Run full test suite
     deps: [test:up]
     cmds:
-      - poetry run pytest
+      - poetry run pytest {{.CLI_ARGS}}
 
   test:cov:
     desc: Run tests with coverage report
     deps: [test:up]
     cmds:
-      - poetry run pytest --cov=app --cov-report=html --cov-report=term
+      - poetry run pytest --cov=app --cov-report=html --cov-report=term {{.CLI_ARGS}}
 
   test:lf:
     desc: Re-run last failed tests
     deps: [test:up]
     cmds:
-      - poetry run pytest --lf
+      - poetry run pytest --lf {{.CLI_ARGS}}
 
   # ── Database migrations ────────────────────────────────
   db:init:
@@ -100,12 +100,12 @@ tasks:
   db:makemigrations:
     desc: Detect model changes and generate migrations
     cmds:
-      - poetry run tortoise makemigrations
+      - poetry run tortoise makemigrations {{.CLI_ARGS}}
 
   db:migrate:
     desc: Apply pending migrations
     cmds:
-      - poetry run tortoise migrate
+      - poetry run tortoise migrate {{.CLI_ARGS}}
 
   # ── Build & Deploy ─────────────────────────────────────
   build:
