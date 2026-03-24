@@ -1,6 +1,7 @@
 # Rental Platform Backend
 
 [![tests](https://github.com/khamitovdr/equipment-sharing-backend-v2/actions/workflows/test.yml/badge.svg)](https://github.com/khamitovdr/equipment-sharing-backend-v2/actions/workflows/test.yml)
+[![coverage](https://coveralls.io/repos/github/khamitovdr/equipment-sharing-backend-v2/badge.svg?branch=main)](https://coveralls.io/github/khamitovdr/equipment-sharing-backend-v2?branch=main)
 [![mypy](https://github.com/khamitovdr/equipment-sharing-backend-v2/actions/workflows/typecheck.yml/badge.svg)](https://github.com/khamitovdr/equipment-sharing-backend-v2/actions/workflows/typecheck.yml)
 [![lint](https://github.com/khamitovdr/equipment-sharing-backend-v2/actions/workflows/lint.yml/badge.svg)](https://github.com/khamitovdr/equipment-sharing-backend-v2/actions/workflows/lint.yml)
 
