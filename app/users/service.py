@@ -5,6 +5,7 @@ from app.core.exceptions import (
     InvalidCredentialsError,
     NotFoundError,
 )
+from app.core.identifiers import create_with_short_id
 from app.core.security import create_access_token, hash_password, verify_password
 from app.users.models import User
 from app.users.schemas import AdminRoleUpdate, PrivilegeUpdate, TokenResponse, UserCreate, UserUpdate
@@ -14,7 +15,8 @@ async def register(data: UserCreate) -> TokenResponse:
     existing = await User.filter(email=data.email).exists()
     if existing:
         raise AlreadyExistsError("User with this email already exists")
-    user = await User.create(
+    user = await create_with_short_id(
+        User,
         email=data.email,
         hashed_password=hash_password(data.password),
         phone=data.phone,

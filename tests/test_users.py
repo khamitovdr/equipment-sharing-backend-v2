@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 import jwt as pyjwt
@@ -6,6 +7,13 @@ from httpx import AsyncClient
 from app.core.config import get_settings
 from app.core.enums import UserRole
 from app.users.models import User
+
+_SHORT_ID_PATTERN = re.compile(r"^[A-Z0-9]{6}$")
+
+
+async def test_registered_user_has_short_id(create_user: Any) -> None:
+    user_data, _ = await create_user(email="shortid@example.com")
+    assert _SHORT_ID_PATTERN.match(user_data["id"]), f"ID {user_data['id']} is not a valid short ID"
 
 
 async def test_register_returns_token(client: AsyncClient) -> None:

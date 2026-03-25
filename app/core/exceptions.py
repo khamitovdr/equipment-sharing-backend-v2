@@ -32,6 +32,10 @@ class AppValidationError(AppError):
     pass
 
 
+class IDGenerationError(AppError):
+    pass
+
+
 _STATUS_MAP: dict[type[AppError], int] = {
     NotFoundError: 404,
     AlreadyExistsError: 409,
@@ -39,6 +43,7 @@ _STATUS_MAP: dict[type[AppError], int] = {
     PermissionDeniedError: 403,
     AccountSuspendedError: 403,
     AppValidationError: 422,
+    IDGenerationError: 500,
 }
 
 
