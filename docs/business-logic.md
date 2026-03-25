@@ -139,19 +139,41 @@ The system uses a layered permission model. Each level builds on the previous:
 | inn | string | unique, required | Russian tax ID (10 or 12 digits) |
 | short_name | string | nullable | Short legal name |
 | full_name | string | nullable | Full legal name with legal form |
-| ogrn | string | nullable | Main state registration number |
-| kpp | string | nullable | Tax registration reason code |
 | registration_date | date | nullable | Date of state registration |
 | authorized_capital_k_rubles | decimal | nullable | Authorized capital in thousands of rubles |
 | legal_address | string | nullable | Registered legal address |
 | manager_name | string | nullable | CEO / manager full name |
 | main_activity | string | nullable | Primary OKVED code |
-| contact_phone | string | required | Contact phone |
-| contact_email | string | required | Contact email |
-| contact_employee_name | string | required | Contact person first name |
-| contact_employee_middle_name | string | nullable | Contact person middle name |
-| contact_employee_surname | string | nullable | Contact person last name |
+| dadata_response | JSON | nullable | Full Dadata API response stored as-is |
 | status | enum OrganizationStatus | default: `created` | Verification lifecycle state |
+
+#### Organization Contact Model (1:N)
+
+Each organization has one or more contacts used for platform admin verification and communication. At least one of `phone` or `email` must be provided per contact.
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | UUID | PK | |
+| organization | FK → Organization | required | |
+| phone | string | nullable | Contact phone (required if no email) |
+| email | string | nullable | Contact email (required if no phone) |
+| employee_name | string | required | Contact person first name |
+| employee_middle_name | string | nullable | Contact person middle name |
+| employee_surname | string | nullable | Contact person last name |
+
+#### Payment Details Model (1:1)
+
+Banking details for the organization. Optional — added when the organization is ready to receive payments.
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | UUID | PK | |
+| organization | FK → Organization | required, unique | One-to-one with Organization |
+| payment_account | string | required | Settlement account number |
+| bank_bic | string | required | Bank identification code |
+| bank_inn | string | required | Bank's tax ID |
+| bank_name | string | required | Bank name |
+| bank_correspondent_account | string | required | Correspondent account number |
 
 ### 3.2 Organization Membership
 
@@ -207,23 +229,38 @@ Unique constraint: `(user, organization)` — a user can have at most one member
 
 ### 3.3 Organization Creation
 
-On creation, the user must provide **obligatory contact information** (`contact_phone`, `contact_email`, `contact_employee_name`) for platform admin verification. Organization legal data can be auto-filled via Dadata API response. The system extracts:
+The user provides an **INN** and **at least one contact** (each contact requires `employee_name` and at least one of `phone` or `email`). Contacts are included inline in the creation request.
 
-| Dadata field path | Maps to |
-|-------------------|---------|
-| `data.name.short_with_opf` | `short_name` |
-| `data.name.full_with_opf` | `full_name` |
-| `data.ogrn` | `ogrn` |
-| `data.inn` | `inn` |
-| `data.kpp` | `kpp` |
-| `data.state.registration_date` | `registration_date` |
-| `data.address.value` | `legal_address` |
-| `data.management.name` | `manager_name` |
-| `data.okved` | `main_activity` |
+**Creation flow:**
 
-New organizations start with status `created`.
+1. **Validate** the request schema (INN format, contacts present and valid).
+2. **Begin transaction:**
+   1. Call the **Dadata API** with the provided INN. If Dadata is **unreachable or returns an error** — abort the transaction and fail with 502 Bad Gateway.
+   2. Create the `Organization` from the Dadata response. The full response is stored in `dadata_response`; a subset is extracted into top-level fields:
 
-### 3.4 Organization Verification Lifecycle
+   | Dadata field path | Maps to |
+   |-------------------|---------|
+   | `data.name.short_with_opf` | `short_name` |
+   | `data.name.full_with_opf` | `full_name` |
+   | `data.inn` | `inn` |
+   | `data.state.registration_date` | `registration_date` |
+   | `data.address.value` | `legal_address` |
+   | `data.management.name` | `manager_name` |
+   | `data.okved` | `main_activity` |
+
+   3. Create `OrganizationContact` records for this organization.
+   4. Create the creator's `Membership` (role `admin`, status `member`).
+3. **Commit transaction.** New organizations start with status `created`.
+
+### 3.4 Organization Contacts Update
+
+Contacts are updated via a dedicated endpoint (`PUT`). Individual contact records are **immutable** — the endpoint accepts a complete new contacts list that **replaces** all existing contacts for the organization. The frontend pre-fills this list from the current contacts so the user only edits what they need. The same validation rules apply: at least one contact, each with `employee_name` and at least one of `phone` or `email`.
+
+### 3.5 Payment Details
+
+Payment details are added to an organization after creation via a dedicated endpoint. Only an **Org Admin** can create or update them. Each organization has at most one `PaymentDetails` record.
+
+### 3.6 Organization Verification Lifecycle
 
 | Status | Description |
 |--------|------------|
@@ -240,13 +277,15 @@ New organizations start with status `created`.
 - A platform admin reviews the organization's contact information and verifies the org.
 - Once `verified`, the organization's published listings become visible in the public catalog and can receive orders.
 
-### 3.5 Organization API Summary
+### 3.7 Organization API Summary
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| POST | `/organizations/` | Authenticated | Create organization (creator becomes admin member) |
+| POST | `/organizations/` | Authenticated | Create organization with contacts (creator becomes admin member) |
 | GET | `/organizations/{id}` | Public | Get organization by ID |
 | GET | `/users/me/organizations` | Authenticated | List organizations the current user belongs to |
+| PUT | `/organizations/{org_id}/contacts` | Org Admin | Replace all contacts with a new list |
+| POST | `/organizations/{org_id}/payment-details` | Org Admin | Create or replace payment details |
 | PATCH | `/private/organizations/{id}/verify` | Platform Admin | Verify organization |
 
 ---
@@ -505,10 +544,18 @@ Each order should have a dedicated chat room between the renter and the organiza
 
 ```
 Organization (PK: id)
+  ├── 1:N ── OrganizationContact (organization FK)
+  ├── 1:1 ── PaymentDetails (organization FK, unique)
   ├── 1:N ── OrganizationMembership (organization FK)
   ├── 1:N ── Listing (organization FK)
   ├── 1:N ── ListingCategory (organization FK, nullable)
   └── 1:N ── Order (organization FK)
+
+OrganizationContact (PK: id)
+  └── FK ── Organization
+
+PaymentDetails (PK: id)
+  └── FK ── Organization (unique)
 
 User (PK: id)
   ├── 1:N ── OrganizationMembership (user FK)

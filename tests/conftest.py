@@ -27,7 +27,16 @@ async def initialize_db() -> AsyncGenerator[None]:
 @pytest.fixture(autouse=True)
 async def truncate_tables() -> None:
     conn = connections.get("default")
-    tables = ["orders", "listings", "listing_categories", "memberships", "organizations", "users"]
+    tables = [
+        "orders",
+        "listings",
+        "listing_categories",
+        "memberships",
+        "organization_contacts",
+        "payment_details",
+        "organizations",
+        "users",
+    ]
     for table in tables:
         await conn.execute_query(f"TRUNCATE TABLE {table} CASCADE;")
 
