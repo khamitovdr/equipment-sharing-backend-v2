@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from app.core.enums import UserRole
 from app.core.exceptions import (
     AccountSuspendedError,
@@ -40,7 +38,7 @@ async def authenticate(email: str, password: str) -> TokenResponse:
     return TokenResponse(access_token=token)
 
 
-async def get_by_id(user_id: UUID) -> User:
+async def get_by_id(user_id: str) -> User:
     user = await User.get_or_none(id=user_id)
     if user is None:
         raise NotFoundError("User not found")
@@ -66,14 +64,14 @@ async def update_me(user: User, data: UserUpdate) -> User:
     return user
 
 
-async def change_user_role(user_id: UUID, data: AdminRoleUpdate) -> User:
+async def change_user_role(user_id: str, data: AdminRoleUpdate) -> User:
     user = await get_by_id(user_id)
     user.role = data.role
     await user.save()
     return user
 
 
-async def change_privilege(user_id: UUID, data: PrivilegeUpdate) -> User:
+async def change_privilege(user_id: str, data: PrivilegeUpdate) -> User:
     user = await get_by_id(user_id)
     user.role = data.role
     await user.save()

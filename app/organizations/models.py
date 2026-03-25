@@ -4,10 +4,11 @@ from tortoise import fields
 from tortoise.models import Model
 
 from app.core.enums import MembershipRole, MembershipStatus, OrganizationStatus
+from app.core.identifiers import generate_short_id
 
 
 class Organization(Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.CharField(max_length=6, primary_key=True, default=generate_short_id)
     inn = fields.CharField(max_length=12, unique=True)
     short_name = fields.CharField(max_length=255, null=True)
     full_name = fields.CharField(max_length=512, null=True)

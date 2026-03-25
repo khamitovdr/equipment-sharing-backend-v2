@@ -1,5 +1,4 @@
 from typing import Annotated
-from uuid import UUID
 
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -25,7 +24,7 @@ async def get_current_user(
         subject = decode_access_token(credentials.credentials)
     except ValueError as e:
         raise InvalidCredentialsError("Could not validate credentials") from e
-    user = await User.get_or_none(id=UUID(subject))
+    user = await User.get_or_none(id=subject)
     if user is None:
         raise InvalidCredentialsError("Could not validate credentials")
     return user

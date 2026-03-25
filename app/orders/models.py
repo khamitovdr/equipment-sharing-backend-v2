@@ -4,10 +4,11 @@ from tortoise import fields
 from tortoise.models import Model
 
 from app.core.enums import OrderStatus
+from app.core.identifiers import generate_short_id
 
 
 class Order(Model):
-    id = fields.UUIDField(primary_key=True)
+    id = fields.CharField(max_length=6, primary_key=True, default=generate_short_id)
     listing: Any = fields.ForeignKeyField("models.Listing", related_name="orders")
     organization: Any = fields.ForeignKeyField("models.Organization", related_name="orders")
     requester: Any = fields.ForeignKeyField("models.User", related_name="orders")

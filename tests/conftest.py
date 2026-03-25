@@ -1,5 +1,5 @@
 from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import httpx
 import pytest
@@ -11,14 +11,25 @@ from app.core.enums import UserRole
 from app.main import app
 from app.users.models import User
 
-if TYPE_CHECKING:
-    from uuid import UUID
+_TEST_TABLES = (
+    "orders",
+    "listings",
+    "listing_categories",
+    "memberships",
+    "organization_contacts",
+    "payment_details",
+    "organizations",
+    "users",
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
 async def initialize_db() -> AsyncGenerator[None]:
     config = get_tortoise_config()
     await Tortoise.init(config=config)
+    conn = connections.get("default")
+    for table in _TEST_TABLES:
+        await conn.execute_query(f'DROP TABLE IF EXISTS "{table}" CASCADE;')
     await Tortoise.generate_schemas()
     yield
     await Tortoise.close_connections()
@@ -27,18 +38,8 @@ async def initialize_db() -> AsyncGenerator[None]:
 @pytest.fixture(autouse=True)
 async def truncate_tables() -> None:
     conn = connections.get("default")
-    tables = [
-        "orders",
-        "listings",
-        "listing_categories",
-        "memberships",
-        "organization_contacts",
-        "payment_details",
-        "organizations",
-        "users",
-    ]
-    for table in tables:
-        await conn.execute_query(f"TRUNCATE TABLE {table} CASCADE;")
+    for table in _TEST_TABLES:
+        await conn.execute_query(f'TRUNCATE TABLE "{table}" CASCADE;')
 
 
 @pytest.fixture
@@ -76,7 +77,7 @@ async def create_user(client: AsyncClient) -> Any:
 @pytest.fixture
 async def admin_user(create_user: Any) -> tuple[dict[str, Any], str]:
     user_data, token = await create_user(email="admin@example.com")
-    user_id: UUID = user_data["id"]
+    user_id: str = user_data["id"]
     await User.filter(id=user_id).update(role=UserRole.ADMIN)
     return user_data, token
 
@@ -84,6 +85,6 @@ async def admin_user(create_user: Any) -> tuple[dict[str, Any], str]:
 @pytest.fixture
 async def owner_user(create_user: Any) -> tuple[dict[str, Any], str]:
     user_data, token = await create_user(email="owner@example.com")
-    user_id: UUID = user_data["id"]
+    user_id: str = user_data["id"]
     await User.filter(id=user_id).update(role=UserRole.OWNER)
     return user_data, token

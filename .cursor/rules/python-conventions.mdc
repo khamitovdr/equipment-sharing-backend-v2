@@ -16,7 +16,7 @@ alwaysApply: false
 
 ## Patterns
 
-- UUID primary keys on all models
+- 6-char short string IDs (`CharField(max_length=6)`) on user-facing models (User, Organization, Listing, ListingCategory, Order); UUID on internal models
 - Async everywhere (Tortoise ORM is async-native)
 - pydantic-settings for config, Pydantic v2 schemas for request/response
 - JWT HS256 auth with 7-day token lifetime

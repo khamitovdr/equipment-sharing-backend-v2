@@ -1,5 +1,4 @@
 from typing import Annotated
-from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
@@ -43,13 +42,13 @@ async def update_me(
 
 
 @router.get("/users/{user_id}", response_model=UserRead)
-async def get_user(user_id: UUID) -> User:
+async def get_user(user_id: str) -> User:
     return await service.get_by_id(user_id)
 
 
 @router.patch("/private/users/{user_id}/role", response_model=UserRead)
 async def change_role(
-    user_id: UUID,
+    user_id: str,
     data: AdminRoleUpdate,
     _admin: Annotated[User, Depends(require_platform_admin)],
 ) -> User:
@@ -58,7 +57,7 @@ async def change_role(
 
 @router.patch("/private/users/{user_id}/privilege", response_model=UserRead)
 async def change_privilege(
-    user_id: UUID,
+    user_id: str,
     data: PrivilegeUpdate,
     _owner: Annotated[User, Depends(require_platform_owner)],
 ) -> User:

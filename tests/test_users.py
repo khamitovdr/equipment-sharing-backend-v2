@@ -1,4 +1,3 @@
-import uuid
 from typing import Any
 
 import jwt as pyjwt
@@ -217,7 +216,7 @@ async def test_get_user_by_id(client: AsyncClient, create_user: Any) -> None:
 
 async def test_get_me_expired_token(client: AsyncClient) -> None:
     settings = get_settings()
-    expired_payload = {"sub": "00000000-0000-0000-0000-000000000000", "exp": 0}
+    expired_payload = {"sub": "000000", "exp": 0}
     expired_token = pyjwt.encode(expired_payload, settings.jwt.secret, algorithm=settings.jwt.algorithm)
     resp = await client.get("/users/me", headers={"Authorization": f"Bearer {expired_token}"})
     assert resp.status_code == 401
@@ -241,7 +240,7 @@ async def test_token_without_sub_claim(client: AsyncClient) -> None:
 
 
 async def test_get_user_not_found(client: AsyncClient) -> None:
-    resp = await client.get(f"/users/{uuid.uuid4()}")
+    resp = await client.get("/users/ZZZZZZ")
     assert resp.status_code == 404
 
 

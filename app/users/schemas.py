@@ -1,7 +1,6 @@
 import re
 from datetime import datetime
 from typing import Literal, Self
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, model_validator
 
@@ -91,7 +90,7 @@ class UserUpdate(BaseModel):
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
+    id: str
     email: str
     phone: str
     name: str

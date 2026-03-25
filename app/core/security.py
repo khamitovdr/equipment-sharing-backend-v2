@@ -1,5 +1,4 @@
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
 
 import jwt
 from argon2 import PasswordHasher
@@ -21,10 +20,10 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def create_access_token(subject: UUID) -> str:
+def create_access_token(subject: str) -> str:
     settings = get_settings()
     expire = datetime.now(UTC) + timedelta(days=settings.jwt.token_lifetime_days)
-    payload = {"sub": str(subject), "exp": expire}
+    payload = {"sub": subject, "exp": expire}
     return jwt.encode(payload, settings.jwt.secret, algorithm=settings.jwt.algorithm)
 
 
