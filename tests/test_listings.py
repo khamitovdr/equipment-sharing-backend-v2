@@ -655,6 +655,50 @@ class TestGetListing:
         assert resp.status_code == 200
         assert resp.json()["name"] == "Member Item"
 
+    async def test_get_listing_unverified_org_denied_for_authenticated_non_member(
+        self,
+        client: AsyncClient,
+        create_organization: Any,
+        create_user: Any,
+        seed_categories: list[ListingCategory],
+    ) -> None:
+        org_data, token = await create_organization()
+        org_id = org_data["id"]
+        create_resp = await client.post(
+            f"/organizations/{org_id}/listings/",
+            json={"name": "Private Item", "category_id": seed_categories[0].id, "price": 100.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        listing_id = create_resp.json()["id"]
+        # Authenticated user who is NOT a member of the unverified org
+        _, outsider_token = await create_user(email="outsider@example.com")
+        resp = await client.get(
+            f"/listings/{listing_id}",
+            headers={"Authorization": f"Bearer {outsider_token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_get_listing_invalid_token_treated_as_unauthenticated(
+        self,
+        client: AsyncClient,
+        create_organization: Any,
+        seed_categories: list[ListingCategory],
+    ) -> None:
+        org_data, token = await create_organization()
+        org_id = org_data["id"]
+        create_resp = await client.post(
+            f"/organizations/{org_id}/listings/",
+            json={"name": "Private Item", "category_id": seed_categories[0].id, "price": 100.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        listing_id = create_resp.json()["id"]
+        # Invalid token — org is unverified, should be denied (treated as no auth)
+        resp = await client.get(
+            f"/listings/{listing_id}",
+            headers={"Authorization": "Bearer invalidtoken"},
+        )
+        assert resp.status_code == 403
+
     async def test_get_listing_not_found(
         self,
         client: AsyncClient,
