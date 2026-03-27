@@ -588,3 +588,76 @@ class TestPublicListings:
         body = resp.json()
         assert len(body) == 1
         assert body[0]["organization_id"] == org_id
+
+
+class TestGetListing:
+    async def test_get_published_listing_from_verified_org(
+        self,
+        client: AsyncClient,
+        verified_org: tuple[dict[str, Any], str],
+        seed_categories: list[ListingCategory],
+    ) -> None:
+        org_data, token = verified_org
+        org_id = org_data["id"]
+        create_resp = await client.post(
+            f"/organizations/{org_id}/listings/",
+            json={"name": "Public Item", "category_id": seed_categories[0].id, "price": 100.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        listing_id = create_resp.json()["id"]
+        await client.patch(
+            f"/organizations/{org_id}/listings/{listing_id}/status",
+            json={"status": "published"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        # Access without auth
+        resp = await client.get(f"/listings/{listing_id}")
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "Public Item"
+
+    async def test_get_listing_unverified_org_denied_for_non_member(
+        self,
+        client: AsyncClient,
+        create_organization: Any,
+        seed_categories: list[ListingCategory],
+    ) -> None:
+        org_data, token = await create_organization()
+        org_id = org_data["id"]
+        create_resp = await client.post(
+            f"/organizations/{org_id}/listings/",
+            json={"name": "Private Item", "category_id": seed_categories[0].id, "price": 100.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        listing_id = create_resp.json()["id"]
+        # Access without auth — org is unverified
+        resp = await client.get(f"/listings/{listing_id}")
+        assert resp.status_code == 403
+
+    async def test_get_listing_unverified_org_allowed_for_member(
+        self,
+        client: AsyncClient,
+        create_organization: Any,
+        seed_categories: list[ListingCategory],
+    ) -> None:
+        org_data, token = await create_organization()
+        org_id = org_data["id"]
+        create_resp = await client.post(
+            f"/organizations/{org_id}/listings/",
+            json={"name": "Member Item", "category_id": seed_categories[0].id, "price": 100.0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        listing_id = create_resp.json()["id"]
+        # Access with auth as org member
+        resp = await client.get(
+            f"/listings/{listing_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "Member Item"
+
+    async def test_get_listing_not_found(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        resp = await client.get("/listings/BADID1")
+        assert resp.status_code == 404

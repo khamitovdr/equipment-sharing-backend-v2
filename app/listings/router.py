@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
 from app.listings import service
-from app.listings.dependencies import get_category_filter, get_org_filter, resolve_listing
+from app.listings.dependencies import get_category_filter, get_org_filter, resolve_listing, resolve_public_listing
 from app.listings.models import Listing
 from app.listings.schemas import (
     ListingCategoryCreate,
@@ -114,3 +114,10 @@ async def list_public_listings(
     organization_id: Annotated[str | None, Depends(get_org_filter)],
 ) -> list[ListingRead]:
     return await service.list_public_listings(category_id, organization_id)
+
+
+@router.get("/listings/{listing_id}", response_model=ListingRead)
+async def get_listing(
+    listing: Annotated[Listing, Depends(resolve_public_listing)],
+) -> ListingRead:
+    return ListingRead.model_validate(listing)
