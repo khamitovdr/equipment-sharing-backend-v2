@@ -155,11 +155,9 @@ Each organization has one or more contacts used for platform admin verification 
 |-------|------|-------------|-------------|
 | id | UUID | PK | |
 | organization | FK → Organization | required | |
+| display_name | string | required | Contact name — person or department (e.g., "Rental Department") |
 | phone | string | nullable | Contact phone (required if no email) |
 | email | string | nullable | Contact email (required if no phone) |
-| employee_name | string | required | Contact person first name |
-| employee_middle_name | string | nullable | Contact person middle name |
-| employee_surname | string | nullable | Contact person last name |
 
 #### Payment Details Model (1:1)
 
