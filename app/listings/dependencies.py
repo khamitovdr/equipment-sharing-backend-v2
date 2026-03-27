@@ -27,8 +27,8 @@ async def get_optional_user(
 
 
 async def resolve_listing(
-    listing_id: Annotated[str, Path()],
     membership: Annotated[Membership, Depends(require_org_editor)],
+    listing_id: str = Path(),
 ) -> Listing:
     await membership.fetch_related("organization")
     org: Organization = membership.organization
@@ -39,8 +39,8 @@ async def resolve_listing(
 
 
 async def resolve_public_listing(
-    listing_id: Annotated[str, Path()],
     user: Annotated[User | None, Depends(get_optional_user)],
+    listing_id: str = Path(),
 ) -> Listing:
     listing = await Listing.get_or_none(id=listing_id).prefetch_related("category", "organization")
     if listing is None:
