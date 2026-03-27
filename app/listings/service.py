@@ -10,6 +10,7 @@ from app.listings.schemas import (
     ListingCategoryRead,
     ListingCreate,
     ListingRead,
+    ListingUpdate,
 )
 from app.organizations.models import Organization
 from app.users.models import User
@@ -95,6 +96,50 @@ async def create_listing(org: Organization, user: User, data: ListingCreate) -> 
     )
     await listing.fetch_related("category")
     return ListingRead.model_validate(listing)
+
+
+async def update_listing(listing: Listing, org: Organization, data: ListingUpdate) -> ListingRead:
+    update_data = data.model_dump(exclude_unset=True)
+    if "category_id" in update_data:
+        category = await _validate_category(update_data.pop("category_id"), org)
+        listing.category = category
+    for field, value in update_data.items():
+        setattr(listing, field, value)
+    await listing.save()
+    await listing.fetch_related("category")
+    return ListingRead.model_validate(listing)
+
+
+async def delete_listing(listing: Listing) -> None:
+    await listing.delete()
+
+
+async def change_listing_status(listing: Listing, status: ListingStatus) -> ListingRead:
+    listing.status = status
+    await listing.save()
+    await listing.fetch_related("category")
+    return ListingRead.model_validate(listing)
+
+
+async def list_org_listings(org_id: str) -> list[ListingRead]:
+    listings = await Listing.filter(organization_id=org_id).prefetch_related("category").order_by("-updated_at")
+    return [ListingRead.model_validate(listing) for listing in listings]
+
+
+async def list_public_listings(
+    category_id: str | None = None,
+    organization_id: str | None = None,
+) -> list[ListingRead]:
+    qs = Listing.filter(
+        status=ListingStatus.PUBLISHED,
+        organization__status=OrganizationStatus.VERIFIED,
+    )
+    if category_id is not None:
+        qs = qs.filter(category_id=category_id)
+    if organization_id is not None:
+        qs = qs.filter(organization_id=organization_id)
+    listings = await qs.prefetch_related("category").order_by("-updated_at")
+    return [ListingRead.model_validate(listing) for listing in listings]
 
 
 async def list_org_categories(org_id: str) -> list[ListingCategoryRead]:
