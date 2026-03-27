@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.core.database import get_tortoise_config
 from app.core.exceptions import AppError, app_error_handler
 from app.listings.models import ListingCategory
+from app.organizations.router import router as organizations_router
 from app.users.router import router as users_router
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ def create_app() -> FastAPI:
 
     application.add_exception_handler(AppError, _handle_app_error)
     application.include_router(users_router)
+    application.include_router(organizations_router)
 
     return application
 

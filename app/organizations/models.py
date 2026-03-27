@@ -27,11 +27,9 @@ class Organization(Model):
 class OrganizationContact(Model):
     id = fields.UUIDField(primary_key=True)
     organization: Any = fields.ForeignKeyField("models.Organization", related_name="contacts")
+    display_name = fields.CharField(max_length=255)
     phone = fields.CharField(max_length=255, null=True)
     email = fields.CharField(max_length=255, null=True)
-    employee_name = fields.CharField(max_length=255)
-    employee_middle_name = fields.CharField(max_length=255, null=True)
-    employee_surname = fields.CharField(max_length=255, null=True)
 
     class Meta:
         table = "organization_contacts"
