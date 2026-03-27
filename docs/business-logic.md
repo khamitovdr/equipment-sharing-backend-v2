@@ -155,11 +155,9 @@ Each organization has one or more contacts used for platform admin verification 
 |-------|------|-------------|-------------|
 | id | UUID | PK | |
 | organization | FK → Organization | required | |
+| display_name | string | required | Contact name — person or department (e.g., "Rental Department") |
 | phone | string | nullable | Contact phone (required if no email) |
 | email | string | nullable | Contact email (required if no phone) |
-| employee_name | string | required | Contact person first name |
-| employee_middle_name | string | nullable | Contact person middle name |
-| employee_surname | string | nullable | Contact person last name |
 
 #### Payment Details Model (1:1)
 
@@ -222,14 +220,15 @@ Unique constraint: `(user, organization)` — a user can have at most one member
 |--------|------|------|---------|
 | POST | `/organizations/{org_id}/members/invite` | Org Admin | Invite a user for a role |
 | POST | `/organizations/{org_id}/members/join` | Authenticated | Request to join |
-| PATCH | `/organizations/{org_id}/members/{id}/accept` | Org Admin (candidates) or Authenticated (invites) | Approve candidate or accept invitation |
+| PATCH | `/organizations/{org_id}/members/{id}/approve` | Org Admin | Approve candidate (admin assigns role in body) |
+| PATCH | `/organizations/{org_id}/members/{id}/accept` | Authenticated (invited user) | Accept invitation |
 | PATCH | `/organizations/{org_id}/members/{id}/role` | Org Admin | Change member role |
 | DELETE | `/organizations/{org_id}/members/{id}` | Org Admin or Self | Remove member, cancel request, or decline invite |
 | GET | `/organizations/{org_id}/members` | Org Member (any role) | List members |
 
 ### 3.3 Organization Creation
 
-The user provides an **INN** and **at least one contact** (each contact requires `employee_name` and at least one of `phone` or `email`). Contacts are included inline in the creation request.
+The user provides an **INN** and **at least one contact** (each contact requires `display_name` and at least one of `phone` or `email`). Contacts are included inline in the creation request.
 
 **Creation flow:**
 
@@ -254,7 +253,7 @@ The user provides an **INN** and **at least one contact** (each contact requires
 
 ### 3.4 Organization Contacts Update
 
-Contacts are updated via a dedicated endpoint (`PUT`). Individual contact records are **immutable** — the endpoint accepts a complete new contacts list that **replaces** all existing contacts for the organization. The frontend pre-fills this list from the current contacts so the user only edits what they need. The same validation rules apply: at least one contact, each with `employee_name` and at least one of `phone` or `email`.
+Contacts are updated via a dedicated endpoint (`PUT`). Individual contact records are **immutable** — the endpoint accepts a complete new contacts list that **replaces** all existing contacts for the organization. The frontend pre-fills this list from the current contacts so the user only edits what they need. The same validation rules apply: at least one contact, each with `display_name` and at least one of `phone` or `email`.
 
 ### 3.5 Payment Details
 
@@ -285,6 +284,7 @@ Payment details are added to an organization after creation via a dedicated endp
 | GET | `/organizations/{id}` | Public | Get organization by ID |
 | GET | `/users/me/organizations` | Authenticated | List organizations the current user belongs to |
 | PUT | `/organizations/{org_id}/contacts` | Org Admin | Replace all contacts with a new list |
+| GET | `/organizations/{org_id}/payment-details` | Org Member | Get payment details (404 if not set) |
 | POST | `/organizations/{org_id}/payment-details` | Org Admin | Create or replace payment details |
 | PATCH | `/private/organizations/{id}/verify` | Platform Admin | Verify organization |
 

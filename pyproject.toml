@@ -99,6 +99,11 @@ show_error_codes = true
 module = ["tortoise.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["dadata.*"]
+ignore_missing_imports = true
+follow_untyped_imports = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 addopts = ["-p", "no:anyio"]

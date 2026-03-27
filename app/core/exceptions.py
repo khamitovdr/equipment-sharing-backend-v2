@@ -36,14 +36,19 @@ class IDGenerationError(AppError):
     pass
 
 
+class ExternalServiceError(AppError):
+    pass
+
+
 _STATUS_MAP: dict[type[AppError], int] = {
     NotFoundError: 404,
     AlreadyExistsError: 409,
     InvalidCredentialsError: 401,
     PermissionDeniedError: 403,
     AccountSuspendedError: 403,
-    AppValidationError: 422,
+    AppValidationError: 400,
     IDGenerationError: 500,
+    ExternalServiceError: 502,
 }
 
 
