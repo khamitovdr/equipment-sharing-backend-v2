@@ -22,6 +22,7 @@ from app.organizations.schemas import (
     MembershipApprove,
     MembershipInvite,
     MembershipRead,
+    MembershipRoleUpdate,
     OrganizationCreate,
     OrganizationRead,
     PaymentDetailsCreate,
@@ -209,6 +210,66 @@ async def accept_invitation(org_id: str, member_id: str, user: User) -> Membersh
     membership.status = MembershipStatus.MEMBER
     await membership.save()
     return MembershipRead.model_validate(membership)
+
+
+async def _is_last_admin(org_id: str, member_id: str) -> bool:
+    admin_count = await Membership.filter(
+        organization_id=org_id,
+        role=MembershipRole.ADMIN,
+        status=MembershipStatus.MEMBER,
+    ).count()
+    if admin_count > 1:
+        return False
+    membership = await Membership.get(id=member_id)
+    return membership.role == MembershipRole.ADMIN
+
+
+async def change_member_role(org_id: str, member_id: str, data: MembershipRoleUpdate) -> MembershipRead:
+    membership = await Membership.get_or_none(id=member_id, organization_id=org_id)
+    if membership is None:
+        raise NotFoundError("Membership not found")
+    if membership.status != MembershipStatus.MEMBER:
+        raise AppValidationError("Can only change role of active members")
+    if data.role != MembershipRole.ADMIN and await _is_last_admin(org_id, member_id):
+        raise AppValidationError("Cannot remove the last admin")
+    membership.role = data.role
+    await membership.save()
+    return MembershipRead.model_validate(membership)
+
+
+async def remove_member(org_id: str, member_id: str, user: User) -> None:
+    membership = await Membership.get_or_none(id=member_id, organization_id=org_id)
+    if membership is None:
+        raise NotFoundError("Membership not found")
+
+    # Check if self-removal
+    await membership.fetch_related("user")
+    membership_user: User = membership.user
+    is_self = membership_user.id == user.id
+
+    if not is_self:
+        caller_membership = await Membership.get_or_none(
+            user=user,
+            organization_id=org_id,
+            status=MembershipStatus.MEMBER,
+            role=MembershipRole.ADMIN,
+        )
+        if caller_membership is None:
+            raise PermissionDeniedError("Only admins can remove other members")
+
+    if (
+        membership.role == MembershipRole.ADMIN
+        and membership.status == MembershipStatus.MEMBER
+        and await _is_last_admin(org_id, member_id)
+    ):
+        raise AppValidationError("Cannot remove the last admin")
+
+    await membership.delete()
+
+
+async def list_members(org_id: str) -> list[MembershipRead]:
+    members = await Membership.filter(organization_id=org_id)
+    return [MembershipRead.model_validate(m) for m in members]
 
 
 async def verify_organization(org_id: str) -> OrganizationRead:

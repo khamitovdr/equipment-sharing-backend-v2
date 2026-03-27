@@ -1,7 +1,6 @@
 from typing import Any
 from unittest.mock import MagicMock
 
-import pytest
 from httpx import AsyncClient
 
 from tests.conftest import _default_org_data
@@ -30,7 +29,6 @@ class TestCreateOrganization:
         assert body["contacts"][0]["display_name"] == "Иван Иванов"
         mock_dadata.find_by_id.assert_called_once_with("party", "7707083893")
 
-    @pytest.mark.skip(reason="needs list members endpoint")
     async def test_create_org_creator_becomes_admin(
         self,
         client: AsyncClient,
@@ -456,6 +454,176 @@ class TestMembershipAccept:
             headers={"Authorization": f"Bearer {user_token}"},
         )
         assert resp.status_code == 400
+
+
+class TestMembershipRoleChange:
+    async def test_change_role(self, client: AsyncClient, create_organization: Any, create_user: Any) -> None:
+        org_data, admin_token = await create_organization()
+        user_data, user_token = await create_user(email="invitee@example.com")
+        invite_resp = await client.post(
+            f"/organizations/{org_data['id']}/members/invite",
+            json={"user_id": user_data["id"], "role": "editor"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        member_id = invite_resp.json()["id"]
+        await client.patch(
+            f"/organizations/{org_data['id']}/members/{member_id}/accept",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        resp = await client.patch(
+            f"/organizations/{org_data['id']}/members/{member_id}/role",
+            json={"role": "viewer"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["role"] == "viewer"
+
+    async def test_change_role_not_member_status(
+        self, client: AsyncClient, create_organization: Any, create_user: Any
+    ) -> None:
+        org_data, admin_token = await create_organization()
+        user_data, _ = await create_user(email="invitee@example.com")
+        invite_resp = await client.post(
+            f"/organizations/{org_data['id']}/members/invite",
+            json={"user_id": user_data["id"], "role": "editor"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        member_id = invite_resp.json()["id"]
+        # Try to change role of an INVITED membership (not yet a member)
+        resp = await client.patch(
+            f"/organizations/{org_data['id']}/members/{member_id}/role",
+            json={"role": "viewer"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 400
+
+    async def test_demote_last_admin(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, admin_token = await create_organization()
+        members_resp = await client.get(
+            f"/organizations/{org_data['id']}/members",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        admin_member_id = members_resp.json()[0]["id"]
+        resp = await client.patch(
+            f"/organizations/{org_data['id']}/members/{admin_member_id}/role",
+            json={"role": "editor"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 400
+
+
+class TestMembershipRemove:
+    async def test_admin_removes_member(self, client: AsyncClient, create_organization: Any, create_user: Any) -> None:
+        org_data, admin_token = await create_organization()
+        user_data, user_token = await create_user(email="invitee@example.com")
+        invite_resp = await client.post(
+            f"/organizations/{org_data['id']}/members/invite",
+            json={"user_id": user_data["id"], "role": "editor"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        member_id = invite_resp.json()["id"]
+        await client.patch(
+            f"/organizations/{org_data['id']}/members/{member_id}/accept",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        resp = await client.delete(
+            f"/organizations/{org_data['id']}/members/{member_id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 204
+
+    async def test_self_removal(self, client: AsyncClient, create_organization: Any, create_user: Any) -> None:
+        org_data, admin_token = await create_organization()
+        user_data, user_token = await create_user(email="invitee@example.com")
+        invite_resp = await client.post(
+            f"/organizations/{org_data['id']}/members/invite",
+            json={"user_id": user_data["id"], "role": "editor"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        member_id = invite_resp.json()["id"]
+        await client.patch(
+            f"/organizations/{org_data['id']}/members/{member_id}/accept",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        resp = await client.delete(
+            f"/organizations/{org_data['id']}/members/{member_id}",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert resp.status_code == 204
+
+    async def test_last_admin_cannot_leave(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, admin_token = await create_organization()
+        members_resp = await client.get(
+            f"/organizations/{org_data['id']}/members",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        admin_member_id = members_resp.json()[0]["id"]
+        resp = await client.delete(
+            f"/organizations/{org_data['id']}/members/{admin_member_id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 400
+
+    async def test_non_admin_cannot_remove_others(
+        self, client: AsyncClient, create_organization: Any, create_user: Any
+    ) -> None:
+        org_data, admin_token = await create_organization()
+        user_data, user_token = await create_user(email="editor@example.com")
+        invite_resp = await client.post(
+            f"/organizations/{org_data['id']}/members/invite",
+            json={"user_id": user_data["id"], "role": "editor"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        member_id = invite_resp.json()["id"]
+        await client.patch(
+            f"/organizations/{org_data['id']}/members/{member_id}/accept",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        # Get admin's member ID
+        members_resp = await client.get(
+            f"/organizations/{org_data['id']}/members",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        admin_member = next(m for m in members_resp.json() if m["role"] == "admin")
+        # Editor tries to remove admin
+        resp = await client.delete(
+            f"/organizations/{org_data['id']}/members/{admin_member['id']}",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert resp.status_code == 403
+
+
+class TestMembershipList:
+    async def test_list_members(self, client: AsyncClient, create_organization: Any, create_user: Any) -> None:
+        org_data, admin_token = await create_organization()
+        user_data, user_token = await create_user(email="invitee@example.com")
+        invite_resp = await client.post(
+            f"/organizations/{org_data['id']}/members/invite",
+            json={"user_id": user_data["id"], "role": "editor"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        member_id = invite_resp.json()["id"]
+        await client.patch(
+            f"/organizations/{org_data['id']}/members/{member_id}/accept",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        resp = await client.get(
+            f"/organizations/{org_data['id']}/members",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 200
+        assert len(resp.json()) == 2
+
+    async def test_list_members_non_member(
+        self, client: AsyncClient, create_organization: Any, create_user: Any
+    ) -> None:
+        org_data, _ = await create_organization()
+        _, other_token = await create_user(email="outsider@example.com")
+        resp = await client.get(
+            f"/organizations/{org_data['id']}/members",
+            headers={"Authorization": f"Bearer {other_token}"},
+        )
+        assert resp.status_code == 403
 
 
 class TestVerifyOrganization:

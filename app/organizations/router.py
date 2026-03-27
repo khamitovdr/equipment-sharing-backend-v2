@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from dadata import Dadata
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 
 from app.core.dependencies import require_active_user, require_platform_admin
 from app.core.exceptions import NotFoundError
@@ -14,6 +14,7 @@ from app.organizations.schemas import (
     MembershipApprove,
     MembershipInvite,
     MembershipRead,
+    MembershipRoleUpdate,
     OrganizationCreate,
     OrganizationRead,
     PaymentDetailsCreate,
@@ -111,6 +112,37 @@ async def accept_invitation(
     if org is None:
         raise NotFoundError("Organization not found")
     return await service.accept_invitation(org_id, member_id, user)
+
+
+@router.patch("/organizations/{org_id}/members/{member_id}/role", response_model=MembershipRead)
+async def change_member_role(
+    org_id: str,
+    member_id: str,
+    data: MembershipRoleUpdate,
+    _membership: Annotated[Membership, Depends(require_org_admin)],
+) -> MembershipRead:
+    return await service.change_member_role(org_id, member_id, data)
+
+
+@router.delete("/organizations/{org_id}/members/{member_id}", status_code=204)
+async def remove_member(
+    org_id: str,
+    member_id: str,
+    user: Annotated[User, Depends(require_active_user)],
+) -> Response:
+    org = await Organization.get_or_none(id=org_id)
+    if org is None:
+        raise NotFoundError("Organization not found")
+    await service.remove_member(org_id, member_id, user)
+    return Response(status_code=204)
+
+
+@router.get("/organizations/{org_id}/members", response_model=list[MembershipRead])
+async def list_members(
+    org_id: str,
+    _membership: Annotated[Membership, Depends(require_org_member)],
+) -> list[MembershipRead]:
+    return await service.list_members(org_id)
 
 
 @router.patch("/private/organizations/{org_id}/verify", response_model=OrganizationRead)
