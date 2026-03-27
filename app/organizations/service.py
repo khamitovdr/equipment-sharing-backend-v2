@@ -9,8 +9,15 @@ from tortoise.transactions import in_transaction
 from app.core.enums import MembershipRole, MembershipStatus, OrganizationStatus
 from app.core.exceptions import AlreadyExistsError, ExternalServiceError, NotFoundError
 from app.core.identifiers import create_with_short_id
-from app.organizations.models import Membership, Organization, OrganizationContact
-from app.organizations.schemas import OrganizationCreate, OrganizationRead
+from app.organizations.models import Membership, Organization, OrganizationContact, PaymentDetails
+from app.organizations.schemas import (
+    ContactRead,
+    ContactsReplace,
+    OrganizationCreate,
+    OrganizationRead,
+    PaymentDetailsCreate,
+    PaymentDetailsRead,
+)
 from app.users.models import User
 
 
@@ -98,6 +105,43 @@ async def list_user_organizations(user: User) -> list[OrganizationRead]:
         status=MembershipStatus.MEMBER,
     ).prefetch_related("organization__contacts")
     return [OrganizationRead.model_validate(m.organization) for m in memberships]
+
+
+async def replace_contacts(org_id: str, data: ContactsReplace) -> list[ContactRead]:
+    async with in_transaction():
+        await OrganizationContact.filter(organization_id=org_id).delete()
+        for contact in data.contacts:
+            await OrganizationContact.create(
+                id=uuid4(),
+                organization_id=org_id,
+                display_name=contact.display_name,
+                phone=contact.phone,
+                email=contact.email,
+            )
+    contacts = await OrganizationContact.filter(organization_id=org_id)
+    return [ContactRead.model_validate(c) for c in contacts]
+
+
+async def get_payment_details(org_id: str) -> PaymentDetailsRead:
+    pd = await PaymentDetails.get_or_none(organization_id=org_id)
+    if pd is None:
+        raise NotFoundError("Payment details not found")
+    return PaymentDetailsRead.model_validate(pd)
+
+
+async def upsert_payment_details(org_id: str, data: PaymentDetailsCreate) -> PaymentDetailsRead:
+    pd = await PaymentDetails.get_or_none(organization_id=org_id)
+    if pd is None:
+        pd = await PaymentDetails.create(
+            id=uuid4(),
+            organization_id=org_id,
+            **data.model_dump(),
+        )
+    else:
+        for field, value in data.model_dump().items():
+            setattr(pd, field, value)
+        await pd.save()
+    return PaymentDetailsRead.model_validate(pd)
 
 
 async def verify_organization(org_id: str) -> OrganizationRead:

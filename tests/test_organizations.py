@@ -151,6 +151,131 @@ class TestListUserOrganizations:
         assert resp.status_code == 401
 
 
+class TestReplaceContacts:
+    async def test_replace_contacts(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, token = await create_organization()
+        new_contacts = {
+            "contacts": [
+                {"display_name": "Новый контакт", "phone": "+79998887766"},
+                {"display_name": "Отдел аренды", "email": "rent@example.com"},
+            ],
+        }
+        resp = await client.put(
+            f"/organizations/{org_data['id']}/contacts",
+            json=new_contacts,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        contacts = resp.json()
+        assert len(contacts) == 2
+        assert contacts[0]["display_name"] == "Новый контакт"
+        assert contacts[1]["display_name"] == "Отдел аренды"
+
+    async def test_replace_contacts_empty_list(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, token = await create_organization()
+        resp = await client.put(
+            f"/organizations/{org_data['id']}/contacts",
+            json={"contacts": []},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
+    async def test_replace_contacts_not_admin(
+        self, client: AsyncClient, create_organization: Any, create_user: Any
+    ) -> None:
+        org_data, _ = await create_organization()
+        _, other_token = await create_user(email="other@example.com")
+        resp = await client.put(
+            f"/organizations/{org_data['id']}/contacts",
+            json={"contacts": [{"display_name": "Test", "phone": "+79991112233"}]},
+            headers={"Authorization": f"Bearer {other_token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_replace_contacts_org_not_found(self, client: AsyncClient, create_user: Any) -> None:
+        _, token = await create_user()
+        resp = await client.put(
+            "/organizations/ZZZZZZ/contacts",
+            json={"contacts": [{"display_name": "Test", "phone": "+79991112233"}]},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+
+_PAYMENT_DATA = {
+    "payment_account": "40702810000000000001",
+    "bank_bic": "044525225",
+    "bank_inn": "7707083893",
+    "bank_name": "ПАО Сбербанк",
+    "bank_correspondent_account": "30101810400000000225",
+}
+
+
+class TestPaymentDetails:
+    async def test_create_payment_details(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, token = await create_organization()
+        resp = await client.post(
+            f"/organizations/{org_data['id']}/payment-details",
+            json=_PAYMENT_DATA,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["payment_account"] == "40702810000000000001"
+        assert body["bank_name"] == "ПАО Сбербанк"
+        assert "id" in body
+
+    async def test_upsert_payment_details(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, token = await create_organization()
+        await client.post(
+            f"/organizations/{org_data['id']}/payment-details",
+            json=_PAYMENT_DATA,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        updated = {**_PAYMENT_DATA, "bank_name": "АО Тинькофф Банк"}
+        resp = await client.post(
+            f"/organizations/{org_data['id']}/payment-details",
+            json=updated,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["bank_name"] == "АО Тинькофф Банк"
+
+    async def test_get_payment_details(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, token = await create_organization()
+        await client.post(
+            f"/organizations/{org_data['id']}/payment-details",
+            json=_PAYMENT_DATA,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        resp = await client.get(
+            f"/organizations/{org_data['id']}/payment-details",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["bank_name"] == "ПАО Сбербанк"
+
+    async def test_get_payment_details_not_set(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, token = await create_organization()
+        resp = await client.get(
+            f"/organizations/{org_data['id']}/payment-details",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_create_payment_details_not_admin(
+        self, client: AsyncClient, create_organization: Any, create_user: Any
+    ) -> None:
+        org_data, _ = await create_organization()
+        _, other_token = await create_user(email="other@example.com")
+        resp = await client.post(
+            f"/organizations/{org_data['id']}/payment-details",
+            json=_PAYMENT_DATA,
+            headers={"Authorization": f"Bearer {other_token}"},
+        )
+        assert resp.status_code == 403
+
+
 class TestVerifyOrganization:
     async def test_verify_org(
         self,

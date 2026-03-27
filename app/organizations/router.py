@@ -5,8 +5,16 @@ from fastapi import APIRouter, Depends
 
 from app.core.dependencies import require_active_user, require_platform_admin
 from app.organizations import service
-from app.organizations.dependencies import get_dadata_client
-from app.organizations.schemas import OrganizationCreate, OrganizationRead
+from app.organizations.dependencies import get_dadata_client, require_org_admin, require_org_member
+from app.organizations.models import Membership
+from app.organizations.schemas import (
+    ContactRead,
+    ContactsReplace,
+    OrganizationCreate,
+    OrganizationRead,
+    PaymentDetailsCreate,
+    PaymentDetailsRead,
+)
 from app.users.models import User
 
 router = APIRouter()
@@ -31,6 +39,32 @@ async def list_my_organizations(
     user: Annotated[User, Depends(require_active_user)],
 ) -> list[OrganizationRead]:
     return await service.list_user_organizations(user)
+
+
+@router.put("/organizations/{org_id}/contacts", response_model=list[ContactRead])
+async def replace_contacts(
+    org_id: str,
+    data: ContactsReplace,
+    _membership: Annotated[Membership, Depends(require_org_admin)],
+) -> list[ContactRead]:
+    return await service.replace_contacts(org_id, data)
+
+
+@router.get("/organizations/{org_id}/payment-details", response_model=PaymentDetailsRead)
+async def get_payment_details(
+    org_id: str,
+    _membership: Annotated[Membership, Depends(require_org_member)],
+) -> PaymentDetailsRead:
+    return await service.get_payment_details(org_id)
+
+
+@router.post("/organizations/{org_id}/payment-details", response_model=PaymentDetailsRead)
+async def create_payment_details(
+    org_id: str,
+    data: PaymentDetailsCreate,
+    _membership: Annotated[Membership, Depends(require_org_admin)],
+) -> PaymentDetailsRead:
+    return await service.upsert_payment_details(org_id, data)
 
 
 @router.patch("/private/organizations/{org_id}/verify", response_model=OrganizationRead)
