@@ -6,6 +6,8 @@ from app.listings import service
 from app.listings.schemas import (
     ListingCategoryCreate,
     ListingCategoryRead,
+    ListingCreate,
+    ListingRead,
 )
 from app.organizations.dependencies import require_org_editor, require_org_member
 from app.organizations.models import Membership, Organization
@@ -43,3 +45,21 @@ async def create_category(
     org: Organization = membership.organization
     user: User = membership.user
     return await service.create_category(org, user, data)
+
+
+# --- Listing endpoints ---
+
+
+@router.post(
+    "/organizations/{org_id}/listings/",
+    response_model=ListingRead,
+    status_code=201,
+)
+async def create_listing(
+    data: ListingCreate,
+    membership: Annotated[Membership, Depends(require_org_editor)],
+) -> ListingRead:
+    await membership.fetch_related("organization", "user")
+    org: Organization = membership.organization
+    user: User = membership.user
+    return await service.create_listing(org, user, data)

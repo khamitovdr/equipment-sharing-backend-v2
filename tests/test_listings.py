@@ -151,3 +151,113 @@ class TestListOrgCategories:
             headers={"Authorization": f"Bearer {outsider_token}"},
         )
         assert resp.status_code == 403
+
+
+class TestCreateListing:
+    async def test_create_listing_success(
+        self,
+        client: AsyncClient,
+        create_organization: Any,
+        seed_categories: list[ListingCategory],
+    ) -> None:
+        org_data, token = await create_organization()
+        org_id = org_data["id"]
+        resp = await client.post(
+            f"/organizations/{org_id}/listings/",
+            json={
+                "name": "Excavator",
+                "category_id": seed_categories[0].id,
+                "price": 5000.0,
+                "description": "Heavy duty excavator",
+                "with_operator": True,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["name"] == "Excavator"
+        assert body["price"] == 5000.0
+        assert body["status"] == "hidden"
+        assert body["with_operator"] is True
+        assert body["delivery"] is False
+        assert body["category"]["id"] == seed_categories[0].id
+        assert body["organization_id"] == org_id
+
+    async def test_create_listing_invalid_category(
+        self,
+        client: AsyncClient,
+        create_organization: Any,
+    ) -> None:
+        org_data, token = await create_organization()
+        org_id = org_data["id"]
+        resp = await client.post(
+            f"/organizations/{org_id}/listings/",
+            json={
+                "name": "Item",
+                "category_id": "BADCAT",
+                "price": 100.0,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_create_listing_other_org_category_rejected(
+        self,
+        client: AsyncClient,
+        create_organization: Any,
+        create_user: Any,
+    ) -> None:
+        # Org A creates a category
+        org_a_data, token_a = await create_organization()
+        org_a_id = org_a_data["id"]
+        cat_resp = await client.post(
+            f"/organizations/{org_a_id}/listings/categories/",
+            json={"name": "Org A Only"},
+            headers={"Authorization": f"Bearer {token_a}"},
+        )
+        cat_id = cat_resp.json()["id"]
+        # Org B tries to use that category
+        _, token_b = await create_user(email="orgb@example.com")
+        org_b_data, token_b = await create_organization(token=token_b, inn="5001012345")
+        org_b_id = org_b_data["id"]
+        resp = await client.post(
+            f"/organizations/{org_b_id}/listings/",
+            json={
+                "name": "Item",
+                "category_id": cat_id,
+                "price": 100.0,
+            },
+            headers={"Authorization": f"Bearer {token_b}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_create_listing_requires_editor(
+        self,
+        client: AsyncClient,
+        create_organization: Any,
+    ) -> None:
+        org_data, _ = await create_organization()
+        org_id = org_data["id"]
+        resp = await client.post(
+            f"/organizations/{org_id}/listings/",
+            json={
+                "name": "Item",
+                "category_id": "AAAAAA",
+                "price": 100.0,
+            },
+        )
+        assert resp.status_code == 401
+
+    async def test_create_listing_missing_required_fields(
+        self,
+        client: AsyncClient,
+        create_organization: Any,
+    ) -> None:
+        org_data, token = await create_organization()
+        org_id = org_data["id"]
+        resp = await client.post(
+            f"/organizations/{org_id}/listings/",
+            json={"description": "Missing name, category, price"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422

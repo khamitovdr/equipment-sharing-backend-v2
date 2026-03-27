@@ -2,11 +2,14 @@ from tortoise.expressions import Q
 from tortoise.functions import Count
 
 from app.core.enums import ListingStatus, OrganizationStatus
+from app.core.exceptions import NotFoundError
 from app.core.identifiers import create_with_short_id
-from app.listings.models import ListingCategory
+from app.listings.models import Listing, ListingCategory
 from app.listings.schemas import (
     ListingCategoryCreate,
     ListingCategoryRead,
+    ListingCreate,
+    ListingRead,
 )
 from app.organizations.models import Organization
 from app.users.models import User
@@ -60,6 +63,38 @@ async def list_public_categories() -> list[ListingCategoryRead]:
         .order_by("-listing_count")
     )
     return [_category_to_read(c) for c in categories]
+
+
+async def _validate_category(category_id: str, org: Organization) -> ListingCategory:
+    category = await ListingCategory.get_or_none(id=category_id)
+    if category is None:
+        raise NotFoundError("Category not found")
+    if not category.verified:
+        owned = await ListingCategory.filter(id=category_id, organization_id=org.id).exists()
+        if not owned:
+            raise NotFoundError("Category not found")
+    return category
+
+
+async def create_listing(org: Organization, user: User, data: ListingCreate) -> ListingRead:
+    category = await _validate_category(data.category_id, org)
+    listing = await create_with_short_id(
+        Listing,
+        name=data.name,
+        category=category,
+        price=data.price,
+        description=data.description,
+        specifications=data.specifications,
+        organization=org,
+        added_by=user,
+        with_operator=data.with_operator,
+        on_owner_site=data.on_owner_site,
+        delivery=data.delivery,
+        installation=data.installation,
+        setup=data.setup,
+    )
+    await listing.fetch_related("category")
+    return ListingRead.model_validate(listing)
 
 
 async def list_org_categories(org_id: str) -> list[ListingCategoryRead]:
