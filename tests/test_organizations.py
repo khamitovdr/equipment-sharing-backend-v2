@@ -1,8 +1,14 @@
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
 from httpx import AsyncClient
 
+from app.core.enums import MembershipRole
+from app.core.exceptions import PermissionDeniedError
+from app.organizations.dependencies import require_org_editor
+from app.organizations.models import Membership, Organization
+from app.users.models import User
 from tests.conftest import _default_org_data
 
 
@@ -355,6 +361,16 @@ class TestMembershipJoin:
 
 
 class TestMembershipApprove:
+    async def test_approve_not_found(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, admin_token = await create_organization()
+        fake_id = "00000000-0000-0000-0000-000000000000"
+        resp = await client.patch(
+            f"/organizations/{org_data['id']}/members/{fake_id}/approve",
+            json={"role": "editor"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 404
+
     async def test_approve_candidate(self, client: AsyncClient, create_organization: Any, create_user: Any) -> None:
         org_data, admin_token = await create_organization()
         _, user_token = await create_user(email="joiner@example.com")
@@ -407,6 +423,16 @@ class TestMembershipApprove:
 
 
 class TestMembershipAccept:
+    async def test_accept_not_found(self, client: AsyncClient, create_user: Any, create_organization: Any) -> None:
+        org_data, _ = await create_organization()
+        _, user_token = await create_user(email="someone@example.com")
+        fake_id = "00000000-0000-0000-0000-000000000000"
+        resp = await client.patch(
+            f"/organizations/{org_data['id']}/members/{fake_id}/accept",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert resp.status_code == 404
+
     async def test_accept_invitation(self, client: AsyncClient, create_organization: Any, create_user: Any) -> None:
         org_data, admin_token = await create_organization()
         user_data, user_token = await create_user(email="invitee@example.com")
@@ -457,6 +483,16 @@ class TestMembershipAccept:
 
 
 class TestMembershipRoleChange:
+    async def test_change_role_not_found(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, admin_token = await create_organization()
+        fake_id = "00000000-0000-0000-0000-000000000000"
+        resp = await client.patch(
+            f"/organizations/{org_data['id']}/members/{fake_id}/role",
+            json={"role": "viewer"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 404
+
     async def test_change_role(self, client: AsyncClient, create_organization: Any, create_user: Any) -> None:
         org_data, admin_token = await create_organization()
         user_data, user_token = await create_user(email="invitee@example.com")
@@ -497,6 +533,36 @@ class TestMembershipRoleChange:
         )
         assert resp.status_code == 400
 
+    async def test_demote_admin_with_two_admins(
+        self, client: AsyncClient, create_organization: Any, create_user: Any
+    ) -> None:
+        org_data, admin_token = await create_organization()
+        user_data, user_token = await create_user(email="second_admin@example.com")
+        # Invite as editor, accept, then promote to admin
+        invite_resp = await client.post(
+            f"/organizations/{org_data['id']}/members/invite",
+            json={"user_id": user_data["id"], "role": "admin"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        member_id = invite_resp.json()["id"]
+        await client.patch(
+            f"/organizations/{org_data['id']}/members/{member_id}/accept",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        # Now demote the original admin — should succeed since there are 2 admins
+        members_resp = await client.get(
+            f"/organizations/{org_data['id']}/members",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        original_admin = next(m for m in members_resp.json() if m["id"] != member_id)
+        resp = await client.patch(
+            f"/organizations/{org_data['id']}/members/{original_admin['id']}/role",
+            json={"role": "editor"},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["role"] == "editor"
+
     async def test_demote_last_admin(self, client: AsyncClient, create_organization: Any) -> None:
         org_data, admin_token = await create_organization()
         members_resp = await client.get(
@@ -513,6 +579,15 @@ class TestMembershipRoleChange:
 
 
 class TestMembershipRemove:
+    async def test_remove_not_found(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, admin_token = await create_organization()
+        fake_id = "00000000-0000-0000-0000-000000000000"
+        resp = await client.delete(
+            f"/organizations/{org_data['id']}/members/{fake_id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 404
+
     async def test_admin_removes_member(self, client: AsyncClient, create_organization: Any, create_user: Any) -> None:
         org_data, admin_token = await create_organization()
         user_data, user_token = await create_user(email="invitee@example.com")
@@ -624,6 +699,54 @@ class TestMembershipList:
             headers={"Authorization": f"Bearer {other_token}"},
         )
         assert resp.status_code == 403
+
+
+class TestRequireOrgEditor:
+    async def test_editor_passes(self, client: AsyncClient, create_organization: Any, create_user: Any) -> None:
+        org_data, admin_token = await create_organization()
+        user_data, user_token = await create_user(email="editor@example.com")
+        invite_resp = await client.post(
+            f"/organizations/{org_data['id']}/members/invite",
+            json={"user_id": user_data["id"], "role": "editor"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        member_id = invite_resp.json()["id"]
+        await client.patch(
+            f"/organizations/{org_data['id']}/members/{member_id}/accept",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        org = await Organization.get(id=org_data["id"])
+        user = await User.get(id=user_data["id"])
+        membership = await require_org_editor(org, user)
+        assert membership.role == MembershipRole.EDITOR
+
+    async def test_admin_passes(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, _ = await create_organization()
+        org = await Organization.get(id=org_data["id"])
+        creator_membership = await Membership.filter(organization=org).first()
+        assert creator_membership is not None
+        await creator_membership.fetch_related("user")
+        user: User = creator_membership.user
+        membership = await require_org_editor(org, user)
+        assert membership.role == MembershipRole.ADMIN
+
+    async def test_viewer_rejected(self, client: AsyncClient, create_organization: Any, create_user: Any) -> None:
+        org_data, admin_token = await create_organization()
+        user_data, user_token = await create_user(email="viewer@example.com")
+        invite_resp = await client.post(
+            f"/organizations/{org_data['id']}/members/invite",
+            json={"user_id": user_data["id"], "role": "viewer"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        member_id = invite_resp.json()["id"]
+        await client.patch(
+            f"/organizations/{org_data['id']}/members/{member_id}/accept",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        org = await Organization.get(id=org_data["id"])
+        user = await User.get(id=user_data["id"])
+        with pytest.raises(PermissionDeniedError):
+            await require_org_editor(org, user)
 
 
 class TestVerifyOrganization:
