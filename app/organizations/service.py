@@ -6,8 +6,8 @@ from uuid import uuid4
 from dadata import Dadata
 from tortoise.transactions import in_transaction
 
-from app.core.enums import MembershipRole, MembershipStatus
-from app.core.exceptions import AlreadyExistsError, ExternalServiceError
+from app.core.enums import MembershipRole, MembershipStatus, OrganizationStatus
+from app.core.exceptions import AlreadyExistsError, ExternalServiceError, NotFoundError
 from app.core.identifiers import create_with_short_id
 from app.organizations.models import Membership, Organization, OrganizationContact
 from app.organizations.schemas import OrganizationCreate, OrganizationRead
@@ -81,5 +81,30 @@ async def create_organization(
             status=MembershipStatus.MEMBER,
         )
 
+    await org.fetch_related("contacts")
+    return OrganizationRead.model_validate(org)
+
+
+async def get_organization(org_id: str) -> OrganizationRead:
+    org = await Organization.get_or_none(id=org_id).prefetch_related("contacts")
+    if org is None:
+        raise NotFoundError("Organization not found")
+    return OrganizationRead.model_validate(org)
+
+
+async def list_user_organizations(user: User) -> list[OrganizationRead]:
+    memberships = await Membership.filter(
+        user=user,
+        status=MembershipStatus.MEMBER,
+    ).prefetch_related("organization__contacts")
+    return [OrganizationRead.model_validate(m.organization) for m in memberships]
+
+
+async def verify_organization(org_id: str) -> OrganizationRead:
+    org = await Organization.get_or_none(id=org_id)
+    if org is None:
+        raise NotFoundError("Organization not found")
+    org.status = OrganizationStatus.VERIFIED
+    await org.save()
     await org.fetch_related("contacts")
     return OrganizationRead.model_validate(org)

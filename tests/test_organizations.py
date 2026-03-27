@@ -116,3 +116,92 @@ class TestCreateOrganization:
         data = _default_org_data()
         resp = await client.post("/organizations/", json=data)
         assert resp.status_code == 401
+
+
+class TestGetOrganization:
+    async def test_get_org_by_id(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, _ = await create_organization()
+        resp = await client.get(f"/organizations/{org_data['id']}")
+        assert resp.status_code == 200
+        assert resp.json()["inn"] == "7707083893"
+        assert len(resp.json()["contacts"]) == 1
+
+    async def test_get_org_not_found(self, client: AsyncClient) -> None:
+        resp = await client.get("/organizations/ZZZZZZ")
+        assert resp.status_code == 404
+
+
+class TestListUserOrganizations:
+    async def test_list_my_orgs(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, token = await create_organization()
+        resp = await client.get("/users/me/organizations", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        orgs = resp.json()
+        assert len(orgs) == 1
+        assert orgs[0]["id"] == org_data["id"]
+
+    async def test_list_my_orgs_empty(self, client: AsyncClient, create_user: Any) -> None:
+        _, token = await create_user()
+        resp = await client.get("/users/me/organizations", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    async def test_list_my_orgs_unauthenticated(self, client: AsyncClient) -> None:
+        resp = await client.get("/users/me/organizations")
+        assert resp.status_code == 401
+
+
+class TestVerifyOrganization:
+    async def test_verify_org(
+        self,
+        client: AsyncClient,
+        create_organization: Any,
+        admin_user: tuple[dict[str, Any], str],
+    ) -> None:
+        org_data, _ = await create_organization()
+        _, admin_token = admin_user
+        resp = await client.patch(
+            f"/private/organizations/{org_data['id']}/verify",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "verified"
+
+    async def test_verify_org_idempotent(
+        self,
+        client: AsyncClient,
+        create_organization: Any,
+        admin_user: tuple[dict[str, Any], str],
+    ) -> None:
+        org_data, _ = await create_organization()
+        _, admin_token = admin_user
+        await client.patch(
+            f"/private/organizations/{org_data['id']}/verify",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        resp = await client.patch(
+            f"/private/organizations/{org_data['id']}/verify",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "verified"
+
+    async def test_verify_org_not_admin(self, client: AsyncClient, create_organization: Any) -> None:
+        org_data, token = await create_organization()
+        resp = await client.patch(
+            f"/private/organizations/{org_data['id']}/verify",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    async def test_verify_org_not_found(
+        self,
+        client: AsyncClient,
+        admin_user: tuple[dict[str, Any], str],
+    ) -> None:
+        _, admin_token = admin_user
+        resp = await client.patch(
+            "/private/organizations/ZZZZZZ/verify",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 404
