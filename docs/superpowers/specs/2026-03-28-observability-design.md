@@ -41,18 +41,18 @@ FastAPI App (host)
 
 **OTel Collector**:
 - Image: `otel/opentelemetry-collector-contrib`
-- Ports: 4317 (gRPC), 4318 (HTTP)
+- Ports exposed to host: 4317 (gRPC) — needed because the app runs on host, not in Docker
 - Config: `config/otel-collector.yaml`
 
 **ClickHouse**:
 - Image: `clickhouse/clickhouse-server`
-- Ports: 8123 (HTTP), 9000 (native)
+- No ports exposed to host — only Collector and Grafana access it within docker network
 - Persistent volume for data
 - Tables auto-created by clickhouse-exporter
 
 **Grafana**:
 - Image: `grafana/grafana`
-- Port: 3001 (avoids frontend conflict on 3000)
+- Port exposed to host: 3001 — for browser access (avoids frontend conflict on 3000)
 - Plugin: `grafana-clickhouse-datasource` via `GF_INSTALL_PLUGINS`
 - Anonymous auth enabled (no login for dev)
 - Provisioned datasource and dashboards on startup
