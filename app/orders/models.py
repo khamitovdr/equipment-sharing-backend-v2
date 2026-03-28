@@ -10,8 +10,11 @@ from app.core.identifiers import generate_short_id
 class Order(Model):
     id = fields.CharField(max_length=6, primary_key=True, default=generate_short_id)
     listing: Any = fields.ForeignKeyField("models.Listing", related_name="orders")
+    listing_id: str
     organization: Any = fields.ForeignKeyField("models.Organization", related_name="orders")
+    organization_id: str
     requester: Any = fields.ForeignKeyField("models.User", related_name="orders")
+    requester_id: str
     requested_start_date = fields.DateField()
     requested_end_date = fields.DateField()
     status = fields.CharEnumField(OrderStatus, default=OrderStatus.PENDING, max_length=30)

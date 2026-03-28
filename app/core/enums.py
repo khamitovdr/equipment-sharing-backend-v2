@@ -42,3 +42,14 @@ class OrderStatus(StrEnum):
     FINISHED = "finished"
     CANCELED_BY_USER = "canceled_by_user"
     CANCELED_BY_ORGANIZATION = "canceled_by_organization"
+
+
+class OrderAction(StrEnum):
+    OFFER_BY_ORG = "offer_by_org"
+    REJECT_BY_ORG = "reject_by_org"
+    CONFIRM_BY_USER = "confirm_by_user"
+    DECLINE_BY_USER = "decline_by_user"
+    CANCEL_BY_USER = "cancel_by_user"
+    CANCEL_BY_ORG = "cancel_by_org"
+    ACTIVATE = "activate"
+    FINISH = "finish"

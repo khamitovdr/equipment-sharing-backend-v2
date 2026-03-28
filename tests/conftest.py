@@ -193,3 +193,49 @@ async def verified_org(create_organization: Any) -> tuple[dict[str, Any], str]:
     org_id = org_data["id"]
     await Organization.filter(id=org_id).update(status=OrganizationStatus.VERIFIED)
     return org_data, creator_token
+
+
+@pytest.fixture
+async def create_listing(
+    client: AsyncClient,
+    verified_org: tuple[dict[str, Any], str],
+    seed_categories: list[ListingCategory],
+) -> tuple[str, str, str]:
+    """Create a published listing in a verified org. Returns (listing_id, org_id, org_admin_token)."""
+    org_data, org_token = verified_org
+    org_id = org_data["id"]
+    category_id = seed_categories[0].id
+
+    resp = await client.post(
+        f"/organizations/{org_id}/listings/",
+        json={
+            "name": "Excavator CAT 320",
+            "category_id": category_id,
+            "price": 5000.00,
+            "description": "Heavy excavator for rent",
+        },
+        headers={"Authorization": f"Bearer {org_token}"},
+    )
+    assert resp.status_code == 201, resp.text
+    listing_id = resp.json()["id"]
+
+    patch_resp = await client.patch(
+        f"/organizations/{org_id}/listings/{listing_id}/status",
+        json={"status": "published"},
+        headers={"Authorization": f"Bearer {org_token}"},
+    )
+    assert patch_resp.status_code == 200, patch_resp.text
+
+    return listing_id, org_id, org_token
+
+
+@pytest.fixture
+async def renter_token(create_user: Any) -> str:
+    """Create a separate user to act as the renter. Returns their token."""
+    _, token = await create_user(
+        email="renter@example.com",
+        phone="+79001112233",
+        name="Renter",
+        surname="Testov",
+    )
+    return str(token)
