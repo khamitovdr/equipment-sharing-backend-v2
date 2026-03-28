@@ -4,7 +4,7 @@
 
 Add comprehensive observability to the rental platform backend: structured logging, distributed tracing, and metrics collection. All three signals flow through OpenTelemetry to ClickHouse, visualized in Grafana with pre-built dashboards.
 
-Scope: local/dev environment only. All infrastructure runs in docker-compose alongside the existing PostgreSQL.
+Scope: dev and production environments. All infrastructure runs in docker-compose alongside the existing PostgreSQL. Production runs on a single VM.
 
 ## Architecture
 
@@ -35,7 +35,7 @@ FastAPI App (host)
 - Backend ALWAYS returns `X-Trace-Id` header
 - Trace ID format: 32 lowercase hex characters (W3C standard)
 
-## Infrastructure
+## Infrastructure (Dev)
 
 ### New docker-compose services (added to `docker-compose.dev.yml`)
 
@@ -356,3 +356,57 @@ Four JSON dashboards provisioned in `config/grafana/dashboards/`:
 - `config/grafana/provisioning/dashboards/default.yaml` — points to dashboards directory
 - Dashboard JSON files committed to repo
 - `task infra:up` brings Grafana up fully configured
+
+## Production Environment
+
+Production runs on a single VM via `docker-compose.prod.yml`. The observability stack is added as three new services alongside the existing `db` and `app`.
+
+### Prod docker-compose services
+
+**OTel Collector**:
+- Same image and config as dev
+- App container sends OTLP to `otel-collector:4317` (docker network, not localhost)
+- `depends_on: [clickhouse]`
+
+**ClickHouse**:
+- Same image as dev
+- Resource limits: `mem_limit: 2g` (reasonable for single VM)
+- Data retention: ClickHouse TTL — 30 days for traces/logs, 90 days for metrics (configurable)
+- Volume: persistent `clickhouse_data`
+- No ports exposed to host (only accessible from Collector and Grafana within docker network)
+
+**Grafana**:
+- Port 3001 exposed to host (put behind reverse proxy with auth in practice)
+- Anonymous auth disabled — `GF_AUTH_ANONYMOUS_ENABLED=false`, default admin credentials from env vars
+- Same provisioned datasource and dashboards as dev
+
+### Prod app changes
+
+The `app` service in `docker-compose.prod.yml` gets:
+- `OTEL__ENDPOINT: otel-collector:4317` env var (within docker network)
+- `depends_on: [db, otel-collector]`
+
+### Prod config (`config/prod.yaml`)
+
+```yaml
+observability:
+  enabled: true
+  otlp_endpoint: "otel-collector:4317"
+  service_name: "rental-platform"
+  log_level: WARNING
+  metrics_export_interval_seconds: 60
+```
+
+Key differences from dev:
+- `log_level: WARNING` — less noise in prod
+- `metrics_export_interval_seconds: 60` — less frequent exports
+- `otlp_endpoint` points to docker service name, not localhost
+
+### Data retention
+
+ClickHouse table TTL policies (set by Collector clickhouse-exporter config or post-creation ALTER):
+- Traces: 30 days
+- Logs: 30 days
+- Metrics: 90 days
+
+Sufficient for a single-VM setup. Prevents unbounded disk growth.
