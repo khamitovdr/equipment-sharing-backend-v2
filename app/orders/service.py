@@ -127,10 +127,10 @@ async def get_order(order: Order) -> OrderRead:
 
 
 async def list_user_orders(user: User) -> list[OrderRead]:
-    orders = await Order.filter(requester=user).order_by("-updated_at")
+    orders = await Order.filter(requester=user).prefetch_related("listing").order_by("-updated_at")
     return [await _to_read(order) for order in orders]
 
 
 async def list_org_orders(org_id: str) -> list[OrderRead]:
-    orders = await Order.filter(organization_id=org_id).order_by("-updated_at")
+    orders = await Order.filter(organization_id=org_id).prefetch_related("listing").order_by("-updated_at")
     return [await _to_read(order) for order in orders]
