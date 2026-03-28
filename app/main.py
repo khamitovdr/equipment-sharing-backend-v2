@@ -12,6 +12,7 @@ from app.core.database import get_tortoise_config
 from app.core.exceptions import AppError, app_error_handler
 from app.listings.models import ListingCategory
 from app.listings.router import router as listings_router
+from app.observability import setup_observability, shutdown_observability
 from app.orders.router import router as orders_router
 from app.organizations.router import router as organizations_router
 from app.users.router import router as users_router
@@ -30,6 +31,7 @@ async def _seed_categories() -> None:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
+    setup_observability(application)
     config = get_tortoise_config()
     async with RegisterTortoise(
         application,
@@ -38,11 +40,13 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
     ):
         await _seed_categories()
         yield
+    shutdown_observability()
 
 
 async def _handle_app_error(request: Request, exc: Exception) -> JSONResponse:
     if isinstance(exc, AppError):
         return await app_error_handler(request, exc)
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
