@@ -405,7 +405,7 @@ An order represents a rental request from a user for a specific listing owned by
 
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
-| id | UUID | PK | |
+| id | string(6) | PK, short ID | 6-character alphanumeric |
 | listing | FK → Listing | required | The rented listing |
 | organization | FK → Organization | required | Organization that owns the listing |
 | requester | FK → User | required | User who placed the order |
@@ -426,6 +426,7 @@ There are 9 statuses:
 ```
 PENDING
   ├──[org editor: offer]───────────► OFFERED
+  │                                    ├──[org editor: re-offer]──► OFFERED (updated terms)
   │                                    ├──[user: confirm]──► CONFIRMED
   │                                    │                       ├──[auto: offered_start_date arrives]──► ACTIVE
   │                                    │                       │                                         ├──[auto: offered_end_date passes]──► FINISHED
@@ -455,8 +456,8 @@ PENDING
 
 #### Organization Offers Terms
 - **Who:** Org Editor (listing's organization)
-- **Required status:** `pending`
-- **Required fields:** `offered_cost`, `offered_start_date`, `offered_end_date` (all three must be provided). The frontend pre-fills them from `estimated_cost`, `requested_start_date`, `requested_end_date`; the editor adjusts if needed.
+- **Required status:** `pending` or `offered` (re-offer to update terms before user decides)
+- **Required fields:** `offered_cost` (must be positive), `offered_start_date`, `offered_end_date` (start ≤ end). All three must be provided. The frontend pre-fills them from `estimated_cost`, `requested_start_date`, `requested_end_date`; the editor adjusts if needed.
 - **Transition:** → `offered`
 - **Semantics:** After the user confirms the order, the `offered_*` fields become the **source of truth** for the rental terms (cost, start date, end date).
 
@@ -478,16 +479,17 @@ PENDING
 - **Business meaning:** User does not agree with the offered terms
 
 #### Automatic: Rent Starts
-- **Trigger:** `offered_start_date` arrives (automatic, e.g., scheduled job or checked on access)
+- **Trigger:** `today >= offered_start_date` (currently implemented as lazy evaluation on read; planned migration to Temporal workflow)
 - **Required status:** `confirmed`
 - **Transition:** → `active`
 - **Side effect:** Listing status is set to `in_rent`
 
 #### Automatic: Rent Ends
-- **Trigger:** `offered_end_date` passes (automatic)
+- **Trigger:** `today > offered_end_date` (lazy evaluation on read)
 - **Required status:** `active`
 - **Transition:** → `finished`
 - **Side effect:** Listing status returns to `published`
+- **Chaining:** If both dates have passed when an order is read (e.g., confirmed while offline), the transitions chain: `confirmed → active → finished` in a single read. The listing ends at `published` (skipping the transient `in_rent` state).
 
 #### User Cancels Order
 - **Who:** Requester
@@ -633,3 +635,15 @@ Order (PK: id)
 | `finished` | Rental complete (offered_end_date has passed). Terminal. |
 | `canceled_by_user` | Canceled by the user. Terminal. |
 | `canceled_by_organization` | Canceled by the organization. Terminal. |
+
+#### OrderAction
+| Value | Actor | Description |
+|-------|-------|-------------|
+| `offer_by_org` | Organization | Offer or re-offer rental terms |
+| `reject_by_org` | Organization | Reject the order request |
+| `confirm_by_user` | User | Accept the offered terms |
+| `decline_by_user` | User | Decline the offered terms |
+| `cancel_by_user` | User | Cancel a confirmed or active order |
+| `cancel_by_org` | Organization | Cancel a confirmed or active order |
+| `activate` | System | Rental period starts (lazy eval / Temporal) |
+| `finish` | System | Rental period ends (lazy eval / Temporal) |
