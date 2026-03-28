@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import date
 
 from app.core.enums import OrderAction, OrderStatus
