@@ -26,7 +26,7 @@ def transition(current: OrderStatus, action: OrderAction) -> OrderStatus:
     return _TRANSITIONS[key]
 
 
-# NOTE: Replace with Temporal workflow for automatic order status transitions
+# TODO: Replace with Temporal workflow for automatic order status transitions
 def maybe_auto_transition(
     *,
     status: OrderStatus,
