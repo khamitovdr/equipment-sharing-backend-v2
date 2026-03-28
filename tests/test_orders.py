@@ -331,6 +331,8 @@ class TestOfferOrder:
         listing_id, _org_id, _org_token = create_listing
         order = await _create_order(client, listing_id, renter_token)
 
+        # create_organization() defaults to "orgcreator@example.com" which is already taken
+        # by the verified_org fixture. Use a separate user + distinct INN to avoid 409.
         _, other_token = await create_user(email="other_org_owner@example.com")
         other_org_data, other_token = await create_organization(token=other_token, inn="7707083894")
         other_org_id = other_org_data["id"]
