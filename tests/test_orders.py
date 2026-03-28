@@ -134,11 +134,12 @@ class TestCreateOrder:
         assert resp.status_code == 201
         listing_id = resp.json()["id"]
 
-        await client.patch(
+        patch_resp = await client.patch(
             f"/organizations/{org_id}/listings/{listing_id}/status",
             json={"status": "published"},
             headers={"Authorization": f"Bearer {org_token}"},
         )
+        assert patch_resp.status_code == 200, patch_resp.text
 
         start = _today() + timedelta(days=1)
         end = start + timedelta(days=2)
