@@ -10,5 +10,8 @@ datasources:
       port: 9000
       protocol: native
       defaultDatabase: otel
+      username: default
+    secureJsonData:
+      password: clickhouse
     isDefault: true
     editable: true
