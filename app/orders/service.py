@@ -76,7 +76,7 @@ async def create_order(user: User, data: OrderCreate) -> OrderRead:
 
 
 async def offer_order(order: Order, data: OrderOffer) -> OrderRead:
-    new_status = transition(order.status, OrderAction.OFFER)
+    new_status = transition(order.status, OrderAction.OFFER_BY_ORG)
     order.status = new_status
     order.offered_cost = data.offered_cost
     order.offered_start_date = data.offered_start_date
@@ -87,20 +87,20 @@ async def offer_order(order: Order, data: OrderOffer) -> OrderRead:
 
 
 async def reject_order(order: Order) -> OrderRead:
-    order.status = transition(order.status, OrderAction.REJECT)
+    order.status = transition(order.status, OrderAction.REJECT_BY_ORG)
     await order.save()
     # _to_read is safe here: REJECTED is terminal, auto-transition won't fire
     return await _to_read(order)
 
 
 async def confirm_order(order: Order) -> OrderRead:
-    order.status = transition(order.status, OrderAction.CONFIRM)
+    order.status = transition(order.status, OrderAction.CONFIRM_BY_USER)
     await order.save()
     return await _to_read(order)
 
 
 async def decline_order(order: Order) -> OrderRead:
-    order.status = transition(order.status, OrderAction.DECLINE)
+    order.status = transition(order.status, OrderAction.DECLINE_BY_USER)
     await order.save()
     # _to_read is safe here: DECLINED is terminal, auto-transition won't fire
     return await _to_read(order)

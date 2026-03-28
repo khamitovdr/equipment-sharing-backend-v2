@@ -4,11 +4,11 @@ from app.core.enums import OrderAction, OrderStatus
 from app.core.exceptions import AppValidationError
 
 _TRANSITIONS: dict[tuple[OrderStatus, OrderAction], OrderStatus] = {
-    (OrderStatus.PENDING, OrderAction.OFFER): OrderStatus.OFFERED,
-    (OrderStatus.PENDING, OrderAction.REJECT): OrderStatus.REJECTED,
-    (OrderStatus.OFFERED, OrderAction.OFFER): OrderStatus.OFFERED,
-    (OrderStatus.OFFERED, OrderAction.CONFIRM): OrderStatus.CONFIRMED,
-    (OrderStatus.OFFERED, OrderAction.DECLINE): OrderStatus.DECLINED,
+    (OrderStatus.PENDING, OrderAction.OFFER_BY_ORG): OrderStatus.OFFERED,
+    (OrderStatus.PENDING, OrderAction.REJECT_BY_ORG): OrderStatus.REJECTED,
+    (OrderStatus.OFFERED, OrderAction.OFFER_BY_ORG): OrderStatus.OFFERED,
+    (OrderStatus.OFFERED, OrderAction.CONFIRM_BY_USER): OrderStatus.CONFIRMED,
+    (OrderStatus.OFFERED, OrderAction.DECLINE_BY_USER): OrderStatus.DECLINED,
     (OrderStatus.CONFIRMED, OrderAction.ACTIVATE): OrderStatus.ACTIVE,
     (OrderStatus.CONFIRMED, OrderAction.CANCEL_BY_USER): OrderStatus.CANCELED_BY_USER,
     (OrderStatus.CONFIRMED, OrderAction.CANCEL_BY_ORG): OrderStatus.CANCELED_BY_ORGANIZATION,

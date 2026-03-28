@@ -9,19 +9,19 @@ from app.orders.state_machine import maybe_auto_transition, transition
 
 class TestTransition:
     def test_pending_to_offered(self) -> None:
-        assert transition(OrderStatus.PENDING, OrderAction.OFFER) == OrderStatus.OFFERED
+        assert transition(OrderStatus.PENDING, OrderAction.OFFER_BY_ORG) == OrderStatus.OFFERED
 
     def test_pending_to_rejected(self) -> None:
-        assert transition(OrderStatus.PENDING, OrderAction.REJECT) == OrderStatus.REJECTED
+        assert transition(OrderStatus.PENDING, OrderAction.REJECT_BY_ORG) == OrderStatus.REJECTED
 
     def test_offered_to_offered(self) -> None:
-        assert transition(OrderStatus.OFFERED, OrderAction.OFFER) == OrderStatus.OFFERED
+        assert transition(OrderStatus.OFFERED, OrderAction.OFFER_BY_ORG) == OrderStatus.OFFERED
 
     def test_offered_to_confirmed(self) -> None:
-        assert transition(OrderStatus.OFFERED, OrderAction.CONFIRM) == OrderStatus.CONFIRMED
+        assert transition(OrderStatus.OFFERED, OrderAction.CONFIRM_BY_USER) == OrderStatus.CONFIRMED
 
     def test_offered_to_declined(self) -> None:
-        assert transition(OrderStatus.OFFERED, OrderAction.DECLINE) == OrderStatus.DECLINED
+        assert transition(OrderStatus.OFFERED, OrderAction.DECLINE_BY_USER) == OrderStatus.DECLINED
 
     def test_confirmed_to_active(self) -> None:
         assert transition(OrderStatus.CONFIRMED, OrderAction.ACTIVATE) == OrderStatus.ACTIVE
@@ -43,19 +43,19 @@ class TestTransition:
 
     def test_invalid_transition_raises(self) -> None:
         with pytest.raises(AppValidationError):
-            transition(OrderStatus.FINISHED, OrderAction.OFFER)
+            transition(OrderStatus.FINISHED, OrderAction.OFFER_BY_ORG)
 
     def test_invalid_transition_from_rejected(self) -> None:
         with pytest.raises(AppValidationError):
-            transition(OrderStatus.REJECTED, OrderAction.CONFIRM)
+            transition(OrderStatus.REJECTED, OrderAction.CONFIRM_BY_USER)
 
     def test_invalid_transition_from_declined(self) -> None:
         with pytest.raises(AppValidationError):
-            transition(OrderStatus.DECLINED, OrderAction.OFFER)
+            transition(OrderStatus.DECLINED, OrderAction.OFFER_BY_ORG)
 
     def test_invalid_transition_pending_confirm(self) -> None:
         with pytest.raises(AppValidationError):
-            transition(OrderStatus.PENDING, OrderAction.CONFIRM)
+            transition(OrderStatus.PENDING, OrderAction.CONFIRM_BY_USER)
 
 
 class TestMaybeAutoTransition:
