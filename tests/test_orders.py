@@ -234,3 +234,196 @@ class TestCreateOrder:
             },
         )
         assert resp.status_code == 401
+
+
+async def _create_offered_order(
+    client: AsyncClient,
+    listing_id: str,
+    org_id: str,
+    org_token: str,
+    renter_token: str,
+) -> dict[str, Any]:
+    order = await _create_order(client, listing_id, renter_token)
+    start = _today() + timedelta(days=2)
+    end = start + timedelta(days=5)
+    resp = await client.patch(
+        f"/organizations/{org_id}/orders/{order['id']}/offer",
+        json={
+            "offered_cost": "30000.00",
+            "offered_start_date": start.isoformat(),
+            "offered_end_date": end.isoformat(),
+        },
+        headers={"Authorization": f"Bearer {org_token}"},
+    )
+    assert resp.status_code == 200
+    return resp.json()
+
+
+@pytest.mark.anyio
+class TestOfferOrder:
+    async def test_offer_success(
+        self,
+        client: AsyncClient,
+        create_listing: tuple[str, str, str],
+        renter_token: str,
+    ) -> None:
+        listing_id, org_id, org_token = create_listing
+        order = await _create_order(client, listing_id, renter_token)
+
+        start = _today() + timedelta(days=2)
+        end = start + timedelta(days=5)
+        resp = await client.patch(
+            f"/organizations/{org_id}/orders/{order['id']}/offer",
+            json={
+                "offered_cost": "30000.00",
+                "offered_start_date": start.isoformat(),
+                "offered_end_date": end.isoformat(),
+            },
+            headers={"Authorization": f"Bearer {org_token}"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "offered"
+        assert body["offered_cost"] == "30000.00"
+
+    async def test_re_offer_updates_terms(
+        self,
+        client: AsyncClient,
+        create_listing: tuple[str, str, str],
+        renter_token: str,
+    ) -> None:
+        listing_id, org_id, org_token = create_listing
+        order = await _create_order(client, listing_id, renter_token)
+
+        start = _today() + timedelta(days=2)
+        end = start + timedelta(days=5)
+        await client.patch(
+            f"/organizations/{org_id}/orders/{order['id']}/offer",
+            json={
+                "offered_cost": "30000.00",
+                "offered_start_date": start.isoformat(),
+                "offered_end_date": end.isoformat(),
+            },
+            headers={"Authorization": f"Bearer {org_token}"},
+        )
+
+        resp = await client.patch(
+            f"/organizations/{org_id}/orders/{order['id']}/offer",
+            json={
+                "offered_cost": "25000.00",
+                "offered_start_date": start.isoformat(),
+                "offered_end_date": end.isoformat(),
+            },
+            headers={"Authorization": f"Bearer {org_token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["offered_cost"] == "25000.00"
+        assert resp.json()["status"] == "offered"
+
+    async def test_offer_wrong_org(
+        self,
+        client: AsyncClient,
+        create_listing: tuple[str, str, str],
+        create_organization: Any,
+        create_user: Any,
+        renter_token: str,
+    ) -> None:
+        listing_id, _org_id, _org_token = create_listing
+        order = await _create_order(client, listing_id, renter_token)
+
+        _, other_token = await create_user(email="other_org_owner@example.com")
+        other_org_data, other_token = await create_organization(token=other_token, inn="7707083894")
+        other_org_id = other_org_data["id"]
+
+        start = _today() + timedelta(days=2)
+        end = start + timedelta(days=5)
+        resp = await client.patch(
+            f"/organizations/{other_org_id}/orders/{order['id']}/offer",
+            json={
+                "offered_cost": "30000.00",
+                "offered_start_date": start.isoformat(),
+                "offered_end_date": end.isoformat(),
+            },
+            headers={"Authorization": f"Bearer {other_token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_offer_invalid_status(
+        self,
+        client: AsyncClient,
+        create_listing: tuple[str, str, str],
+        renter_token: str,
+    ) -> None:
+        listing_id, org_id, org_token = create_listing
+        order = await _create_order(client, listing_id, renter_token)
+
+        start = _today() + timedelta(days=2)
+        end = start + timedelta(days=5)
+        offer_data = {
+            "offered_cost": "30000.00",
+            "offered_start_date": start.isoformat(),
+            "offered_end_date": end.isoformat(),
+        }
+
+        await client.patch(
+            f"/organizations/{org_id}/orders/{order['id']}/offer",
+            json=offer_data,
+            headers={"Authorization": f"Bearer {org_token}"},
+        )
+        await client.patch(
+            f"/orders/{order['id']}/confirm",
+            headers={"Authorization": f"Bearer {renter_token}"},
+        )
+
+        resp = await client.patch(
+            f"/organizations/{org_id}/orders/{order['id']}/offer",
+            json=offer_data,
+            headers={"Authorization": f"Bearer {org_token}"},
+        )
+        assert resp.status_code == 400
+
+
+@pytest.mark.anyio
+class TestRejectOrder:
+    async def test_reject_success(
+        self,
+        client: AsyncClient,
+        create_listing: tuple[str, str, str],
+        renter_token: str,
+    ) -> None:
+        listing_id, org_id, org_token = create_listing
+        order = await _create_order(client, listing_id, renter_token)
+
+        resp = await client.patch(
+            f"/organizations/{org_id}/orders/{order['id']}/reject",
+            headers={"Authorization": f"Bearer {org_token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "rejected"
+
+    async def test_reject_non_pending(
+        self,
+        client: AsyncClient,
+        create_listing: tuple[str, str, str],
+        renter_token: str,
+    ) -> None:
+        listing_id, org_id, org_token = create_listing
+        order = await _create_order(client, listing_id, renter_token)
+
+        start = _today() + timedelta(days=2)
+        end = start + timedelta(days=5)
+        await client.patch(
+            f"/organizations/{org_id}/orders/{order['id']}/offer",
+            json={
+                "offered_cost": "30000.00",
+                "offered_start_date": start.isoformat(),
+                "offered_end_date": end.isoformat(),
+            },
+            headers={"Authorization": f"Bearer {org_token}"},
+        )
+
+        resp = await client.patch(
+            f"/organizations/{org_id}/orders/{order['id']}/reject",
+            headers={"Authorization": f"Bearer {org_token}"},
+        )
+        assert resp.status_code == 400
