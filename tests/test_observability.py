@@ -1,7 +1,10 @@
 import inspect
+import logging
 
 import pytest
 
+from app.observability.context import RequestContext, request_context
+from app.observability.logs import RequestContextFilter
 from app.observability.tracing import _extract_span_attributes, traced
 
 
@@ -49,3 +52,42 @@ async def test_traced_decorator_propagates_exceptions() -> None:
 
     with pytest.raises(ValueError, match="boom"):
         await fail()
+
+
+async def test_context_filter_adds_fields_from_context() -> None:
+    ctx = RequestContext(user_id="usr-1", org_id="org-2")
+    token = request_context.set(ctx)
+    try:
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="hello",
+            args=(),
+            exc_info=None,
+        )
+        f = RequestContextFilter()
+        f.filter(record)
+        attrs = vars(record)
+        assert attrs["user_id"] == "usr-1"
+        assert attrs["org_id"] == "org-2"
+    finally:
+        request_context.reset(token)
+
+
+async def test_context_filter_defaults_when_no_context() -> None:
+    record = logging.LogRecord(
+        name="test",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg="hello",
+        args=(),
+        exc_info=None,
+    )
+    f = RequestContextFilter()
+    f.filter(record)
+    attrs = vars(record)
+    assert attrs["user_id"] == ""
+    assert attrs["org_id"] == ""
