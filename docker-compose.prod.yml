@@ -13,6 +13,11 @@ services:
     mem_limit: 2g
     volumes:
       - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib
@@ -20,7 +25,8 @@ services:
     volumes:
       - ./config/otel-collector-prod.yaml:/etc/otelcol-contrib/config.yaml:ro
     depends_on:
-      - clickhouse
+      clickhouse:
+        condition: service_healthy
 
   grafana:
     image: grafana/grafana
