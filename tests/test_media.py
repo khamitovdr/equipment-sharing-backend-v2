@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 import pytest
 from httpx import AsyncClient
 
-from app.core.enums import MediaContext, MediaKind, MediaStatus
+from app.core.enums import MediaContext, MediaKind, MediaOwnerType, MediaStatus
 from app.media.models import Media
 from app.media.storage import StorageClient
 from app.users.models import User
@@ -410,3 +410,47 @@ async def test_remove_profile_photo(client: AsyncClient, create_user: Any) -> No
 
     assert resp.status_code == 200
     assert resp.json()["profile_photo"] is None
+
+
+# ── Organization photo tests ─────────────────────────────
+
+
+async def test_org_read_includes_photo(client: AsyncClient, create_organization: Any) -> None:
+    org_data, token = await create_organization()
+    org_id = org_data["id"]
+
+    user_resp = await client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
+    user_id = user_resp.json()["id"]
+    photo_id = await _create_ready_photo(user_id, "org_profile")
+    await Media.filter(id=photo_id).update(
+        owner_type=MediaOwnerType.ORGANIZATION,
+        owner_id=org_id,
+    )
+
+    resp = await client.get(
+        f"/organizations/{org_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["photo"] is not None
+    assert "medium_url" in resp.json()["photo"]
+
+
+async def test_update_org_photo(client: AsyncClient, create_organization: Any) -> None:
+    org_data, token = await create_organization()
+    org_id = org_data["id"]
+
+    user_resp = await client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
+    user_id = user_resp.json()["id"]
+    photo_id = await _create_ready_photo(user_id, "org_profile")
+
+    resp = await client.patch(
+        f"/organizations/{org_id}/photo",
+        json={"photo_id": str(photo_id)},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["photo"] is not None
+    assert "medium_url" in resp.json()["photo"]

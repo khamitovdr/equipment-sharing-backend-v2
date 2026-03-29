@@ -4,6 +4,9 @@ from dadata import Dadata
 from fastapi import APIRouter, Depends, Response
 
 from app.core.dependencies import require_active_user, require_platform_admin
+from app.core.enums import MediaOwnerType
+from app.media import service as media_service
+from app.media.storage import StorageClient, get_storage
 from app.organizations import service
 from app.organizations.dependencies import get_dadata_client, get_org_or_404, require_org_admin, require_org_member
 from app.organizations.models import Membership, Organization
@@ -15,6 +18,7 @@ from app.organizations.schemas import (
     MembershipRead,
     MembershipRoleUpdate,
     OrganizationCreate,
+    OrganizationPhotoUpdate,
     OrganizationRead,
     PaymentDetailsCreate,
     PaymentDetailsRead,
@@ -29,20 +33,54 @@ async def create_organization(
     data: OrganizationCreate,
     user: Annotated[User, Depends(require_active_user)],
     dadata: Annotated[Dadata, Depends(get_dadata_client)],
+    storage: Annotated[StorageClient, Depends(get_storage)],
 ) -> OrganizationRead:
-    return await service.create_organization(data, user, dadata)
+    org_read = await service.create_organization(data, user, dadata)
+    org_read.photo = await media_service.get_profile_photo(MediaOwnerType.ORGANIZATION, org_read.id, storage)
+    return org_read
 
 
 @router.get("/organizations/{org_id}", response_model=OrganizationRead)
-async def get_organization(org_id: str) -> OrganizationRead:
-    return await service.get_organization(org_id)
+async def get_organization(
+    org_id: str,
+    storage: Annotated[StorageClient, Depends(get_storage)],
+) -> OrganizationRead:
+    org_read = await service.get_organization(org_id)
+    org_read.photo = await media_service.get_profile_photo(MediaOwnerType.ORGANIZATION, org_read.id, storage)
+    return org_read
 
 
 @router.get("/users/me/organizations", response_model=list[OrganizationRead])
 async def list_my_organizations(
     user: Annotated[User, Depends(require_active_user)],
+    storage: Annotated[StorageClient, Depends(get_storage)],
 ) -> list[OrganizationRead]:
-    return await service.list_user_organizations(user)
+    orgs = await service.list_user_organizations(user)
+    for org_read in orgs:
+        org_read.photo = await media_service.get_profile_photo(MediaOwnerType.ORGANIZATION, org_read.id, storage)
+    return orgs
+
+
+@router.patch("/organizations/{org_id}/photo", response_model=OrganizationRead)
+async def update_org_photo(
+    data: OrganizationPhotoUpdate,
+    membership: Annotated[Membership, Depends(require_org_admin)],
+    storage: Annotated[StorageClient, Depends(get_storage)],
+) -> OrganizationRead:
+    await membership.fetch_related("organization", "user")
+    org: Organization = membership.organization
+    user: User = membership.user
+    await media_service.attach_profile_photo(
+        data.photo_id,
+        MediaOwnerType.ORGANIZATION,
+        org.id,
+        user,
+        storage,
+    )
+    await org.fetch_related("contacts")
+    org_read = OrganizationRead.model_validate(org)
+    org_read.photo = await media_service.get_profile_photo(MediaOwnerType.ORGANIZATION, org.id, storage)
+    return org_read
 
 
 @router.put("/organizations/{org_id}/contacts", response_model=list[ContactRead])
@@ -139,5 +177,8 @@ async def list_members(
 async def verify_organization(
     org_id: str,
     _admin: Annotated[User, Depends(require_platform_admin)],
+    storage: Annotated[StorageClient, Depends(get_storage)],
 ) -> OrganizationRead:
-    return await service.verify_organization(org_id)
+    org_read = await service.verify_organization(org_id)
+    org_read.photo = await media_service.get_profile_photo(MediaOwnerType.ORGANIZATION, org_read.id, storage)
+    return org_read
