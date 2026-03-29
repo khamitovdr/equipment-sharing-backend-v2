@@ -28,3 +28,50 @@ seed_categories:
   - "Промышленное оборудование"
   - "Контрактное производство"
   - "Выставочное оборудование"
+
+storage:
+  endpoint_url: "http://localhost:9000"
+  bucket: "rental-media"
+  presigned_url_expiry_seconds: 3600
+
+media:
+  max_photo_size_mb: 20
+  max_video_size_mb: 500
+  max_document_size_mb: 50
+  allowed_photo_types:
+    - "image/jpeg"
+    - "image/png"
+    - "image/webp"
+    - "image/heic"
+  allowed_video_types:
+    - "video/mp4"
+    - "video/quicktime"
+    - "video/webm"
+  allowed_document_types:
+    - "application/pdf"
+    - "application/msword"
+    - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    - "text/plain"
+    - "text/csv"
+  orphan_cleanup_after_hours: 24
+  orphan_cleanup_interval_minutes: 60
+  photo_variant_sets:
+    profile:
+      - { name: "medium", max_width: 600, quality: 80 }
+      - { name: "small", max_width: 200, quality: 75 }
+    listing:
+      - { name: "large", max_width: 1200, quality: 85 }
+      - { name: "medium", max_width: 600, quality: 80 }
+      - { name: "small", max_width: 200, quality: 75 }
+  video_variant_sets:
+    listing:
+      - { name: "full", max_height: 720, video_bitrate: "1.5M", audio: true }
+      - { name: "preview", max_height: 480, video_bitrate: "500k", audio: false, max_duration_seconds: 10 }
+  listing_limits_max_photos: 20
+  listing_limits_max_videos: 5
+  listing_limits_max_documents: 10
+
+worker:
+  redis_url: "redis://localhost:6379"
+  max_concurrent_jobs: 10

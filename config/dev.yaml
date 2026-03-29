@@ -9,3 +9,7 @@ cors:
   allow_origins:
     - "http://localhost:3000"
     - "http://localhost:5173"
+
+storage:
+  access_key: "minioadmin"
+  secret_key: "minioadmin"

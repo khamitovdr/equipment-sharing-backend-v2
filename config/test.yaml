@@ -8,3 +8,12 @@ jwt:
 
 observability:
   enabled: false
+
+storage:
+  endpoint_url: "http://localhost:9002"
+  bucket: "rental-media-test"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+
+worker:
+  redis_url: "redis://localhost:6380"
