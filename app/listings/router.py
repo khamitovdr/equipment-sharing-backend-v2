@@ -88,8 +88,9 @@ async def update_listing(
 @router.delete("/organizations/{org_id}/listings/{listing_id}", status_code=204)
 async def delete_listing(
     listing: Annotated[Listing, Depends(resolve_listing)],
+    storage: Annotated[StorageClient, Depends(get_storage)],
 ) -> Response:
-    await service.delete_listing(listing)
+    await service.delete_listing(listing, storage)
     return Response(status_code=204)
 
 

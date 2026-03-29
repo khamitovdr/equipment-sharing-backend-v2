@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
@@ -613,3 +614,133 @@ async def test_listing_without_media_returns_empty_arrays(
     assert data["photos"] == []
     assert data["videos"] == []
     assert data["documents"] == []
+
+
+# ── Immediate cleanup on entity deletion ─────────────────
+
+
+async def test_delete_listing_cleans_up_media(
+    client: AsyncClient,
+    verified_org: tuple[dict[str, str], str],
+    seed_categories: list[Any],
+) -> None:
+    org_data, token = verified_org
+    org_id = org_data["id"]
+    category_id = seed_categories[0].id
+
+    user_resp = await client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
+    user_id = user_resp.json()["id"]
+    photo_id = await _create_ready_photo(user_id, "listing")
+
+    resp = await client.post(
+        f"/organizations/{org_id}/listings/",
+        json={
+            "name": "To be deleted",
+            "category_id": category_id,
+            "price": 1000.00,
+            "photo_ids": [str(photo_id)],
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 201
+    listing_id = resp.json()["id"]
+
+    del_resp = await client.delete(
+        f"/organizations/{org_id}/listings/{listing_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert del_resp.status_code == 204
+
+    # Media record should be deleted
+    media = await Media.get_or_none(id=photo_id)
+    assert media is None
+
+
+# ── Orphan cleanup cron ───────────────────────────────────
+
+
+async def test_orphan_cleanup_deletes_old_unattached() -> None:
+    from app.media.service import cleanup_orphaned_media
+
+    mock_st = AsyncMock()
+
+    user = await User.create(
+        id="ORPH01",
+        email="orphan-test@example.com",
+        hashed_password="x",
+        phone="+79991234567",
+        name="Test",
+        surname="Orphan",
+    )
+
+    old_media = await Media.create(
+        id=uuid4(),
+        uploaded_by=user,
+        kind=MediaKind.PHOTO,
+        context=MediaContext.USER_PROFILE,
+        status=MediaStatus.READY,
+        original_filename="old.jpg",
+        content_type="image/jpeg",
+        file_size=1024,
+        upload_key="pending/old/old.jpg",
+        variants={"medium": "media/old/medium.webp"},
+    )
+    await Media.filter(id=old_media.id).update(
+        created_at=datetime.now(tz=UTC) - timedelta(hours=48),
+    )
+
+    recent_media = await Media.create(
+        id=uuid4(),
+        uploaded_by=user,
+        kind=MediaKind.PHOTO,
+        context=MediaContext.USER_PROFILE,
+        status=MediaStatus.PENDING_UPLOAD,
+        original_filename="recent.jpg",
+        content_type="image/jpeg",
+        file_size=1024,
+        upload_key="pending/recent/recent.jpg",
+    )
+
+    deleted_count = await cleanup_orphaned_media(mock_st, max_age_hours=24)
+
+    assert deleted_count == 1
+    assert await Media.get_or_none(id=old_media.id) is None
+    assert await Media.get_or_none(id=recent_media.id) is not None
+
+
+async def test_orphan_cleanup_skips_attached() -> None:
+    from app.media.service import cleanup_orphaned_media
+
+    mock_st = AsyncMock()
+
+    user = await User.create(
+        id="ORPH02",
+        email="orphan-attached@example.com",
+        hashed_password="x",
+        phone="+79001112233",
+        name="Test",
+        surname="Attached",
+    )
+
+    attached_media = await Media.create(
+        id=uuid4(),
+        uploaded_by=user,
+        owner_type=MediaOwnerType.USER,
+        owner_id="ORPH02",
+        kind=MediaKind.PHOTO,
+        context=MediaContext.USER_PROFILE,
+        status=MediaStatus.READY,
+        original_filename="attached.jpg",
+        content_type="image/jpeg",
+        file_size=1024,
+        upload_key="pending/attached/attached.jpg",
+        variants={"medium": "media/attached/medium.webp"},
+    )
+    await Media.filter(id=attached_media.id).update(
+        created_at=datetime.now(tz=UTC) - timedelta(hours=48),
+    )
+
+    deleted_count = await cleanup_orphaned_media(mock_st, max_age_hours=24)
+
+    assert deleted_count == 0
+    assert await Media.get_or_none(id=attached_media.id) is not None

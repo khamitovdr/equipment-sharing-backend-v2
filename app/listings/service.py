@@ -1,7 +1,7 @@
 from tortoise.expressions import Q
 from tortoise.functions import Count
 
-from app.core.enums import ListingStatus, OrganizationStatus
+from app.core.enums import ListingStatus, MediaOwnerType, OrganizationStatus
 from app.core.exceptions import NotFoundError
 from app.core.identifiers import create_with_short_id
 from app.listings.models import Listing, ListingCategory
@@ -161,7 +161,8 @@ async def update_listing(
 
 
 @traced
-async def delete_listing(listing: Listing) -> None:
+async def delete_listing(listing: Listing, storage: StorageClient) -> None:
+    await media_service.delete_entity_media(MediaOwnerType.LISTING, listing.id, storage)
     await listing.delete()
 
 

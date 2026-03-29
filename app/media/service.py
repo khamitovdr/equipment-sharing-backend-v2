@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from app.core.config import get_settings
@@ -102,6 +103,39 @@ async def delete_media(media: Media, storage: StorageClient) -> None:
     await storage.delete_prefix(f"pending/{media.id}/")
     await storage.delete_prefix(f"media/{media.id}/")
     await media.delete()
+
+
+@traced
+async def delete_entity_media(
+    owner_type: MediaOwnerType,
+    owner_id: str,
+    storage: StorageClient,
+) -> None:
+    """Delete all media for an entity (S3 files + DB records)."""
+    media_list = await Media.filter(owner_type=owner_type, owner_id=owner_id).all()
+    for media in media_list:
+        await storage.delete_prefix(f"pending/{media.id}/")
+        await storage.delete_prefix(f"media/{media.id}/")
+        await media.delete()
+
+
+@traced
+async def cleanup_orphaned_media(storage: StorageClient, max_age_hours: int = 24) -> int:
+    """Delete unattached media older than max_age_hours. Returns count of deleted records."""
+    cutoff = datetime.now(tz=UTC) - timedelta(hours=max_age_hours)
+    orphans = await Media.filter(
+        owner_type=None,
+        created_at__lt=cutoff,
+    ).all()
+
+    count = 0
+    for media in orphans:
+        await storage.delete_prefix(f"pending/{media.id}/")
+        await storage.delete_prefix(f"media/{media.id}/")
+        await media.delete()
+        count += 1
+
+    return count
 
 
 @traced
