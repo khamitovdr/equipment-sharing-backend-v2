@@ -253,3 +253,87 @@ async def test_confirm_rejects_non_uploader(client: AsyncClient, create_user: An
     )
 
     assert confirm_resp.status_code == 403
+
+
+async def test_get_media_status(client: AsyncClient, create_user: Any, mock_storage: AsyncMock) -> None:  # noqa: ARG001
+    _, token = await create_user()
+
+    resp = await client.post(
+        "/media/upload-url",
+        json={
+            "kind": "photo",
+            "context": "user_profile",
+            "filename": "photo.jpg",
+            "content_type": "image/jpeg",
+            "file_size": 1024,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    media_id = resp.json()["media_id"]
+
+    status_resp = await client.get(
+        f"/media/{media_id}/status",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert status_resp.status_code == 200
+    assert status_resp.json()["status"] == "pending_upload"
+
+
+async def test_delete_media(client: AsyncClient, create_user: Any, mock_storage: AsyncMock) -> None:  # noqa: ARG001
+    _, token = await create_user()
+
+    resp = await client.post(
+        "/media/upload-url",
+        json={
+            "kind": "photo",
+            "context": "user_profile",
+            "filename": "photo.jpg",
+            "content_type": "image/jpeg",
+            "file_size": 1024,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    media_id = resp.json()["media_id"]
+
+    del_resp = await client.delete(
+        f"/media/{media_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert del_resp.status_code == 204
+
+    status_resp = await client.get(
+        f"/media/{media_id}/status",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert status_resp.status_code == 404
+
+
+async def test_retry_failed_media(client: AsyncClient, create_user: Any, mock_storage: AsyncMock) -> None:  # noqa: ARG001
+    _, token = await create_user()
+
+    resp = await client.post(
+        "/media/upload-url",
+        json={
+            "kind": "photo",
+            "context": "user_profile",
+            "filename": "photo.jpg",
+            "content_type": "image/jpeg",
+            "file_size": 1024,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    media_id = resp.json()["media_id"]
+
+    from uuid import UUID
+
+    from app.core.enums import MediaStatus
+    from app.media.models import Media as MediaModel
+
+    await MediaModel.filter(id=UUID(media_id)).update(status=MediaStatus.FAILED)
+
+    retry_resp = await client.post(
+        f"/media/{media_id}/retry",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert retry_resp.status_code == 200
+    assert retry_resp.json()["status"] == "processing"
