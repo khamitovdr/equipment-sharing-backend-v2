@@ -16,6 +16,7 @@ from app.organizations.models import Organization
 from app.users.models import User
 
 _TEST_TABLES = (
+    "media",
     "orders",
     "listings",
     "listing_categories",
