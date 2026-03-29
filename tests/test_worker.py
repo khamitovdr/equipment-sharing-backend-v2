@@ -325,5 +325,4 @@ async def test_worker_settings_redis_settings() -> None:
 
     from app.media.worker import WorkerSettings
 
-    result = WorkerSettings.redis_settings()
-    assert isinstance(result, RedisSettings)
+    assert isinstance(WorkerSettings.redis_settings, RedisSettings)

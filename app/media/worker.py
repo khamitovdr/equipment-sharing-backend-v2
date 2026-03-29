@@ -150,11 +150,7 @@ class WorkerSettings:
         cron(cast("WorkerCoroutine", cleanup_orphans_cron), minute={0}),
     ]
     max_jobs = 10
-
-    @staticmethod
-    def redis_settings() -> RedisSettings:
-        settings = get_settings()
-        return RedisSettings.from_dsn(settings.worker.redis_url)
+    redis_settings: ClassVar[RedisSettings] = RedisSettings.from_dsn(get_settings().worker.redis_url)
 
 
 if __name__ == "__main__":
