@@ -98,3 +98,11 @@ async def test_build_video_preview_command() -> None:
     assert "-an" in cmd
     assert "-t" in cmd
     assert "10" in cmd
+
+
+async def test_document_processing_is_passthrough() -> None:
+    from app.media.processing import process_document
+
+    original = b"%PDF-1.4 fake pdf content"
+    result = process_document(original)
+    assert result == original

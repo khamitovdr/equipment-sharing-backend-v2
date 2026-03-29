@@ -103,8 +103,16 @@ async def _process_video(media: Media, storage: StorageClient) -> None:
 
 
 async def _process_document(media: Media, storage: StorageClient) -> None:
-    # Implemented in Task 9
-    pass
+    from app.media.processing import process_document
+
+    original_data = await storage.download(media.upload_key)
+    processed = process_document(original_data)
+
+    key = f"media/{media.id}/{media.original_filename}"
+    await storage.upload(key, processed, media.content_type)
+
+    media.variants = {"original": key}
+    await storage.delete(media.upload_key)
 
 
 async def get_arq_pool() -> ArqRedis:

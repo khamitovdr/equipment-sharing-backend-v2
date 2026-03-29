@@ -108,3 +108,7 @@ async def process_video(
             results[name] = output_path.read_bytes()
 
     return results
+
+
+def process_document(original_data: bytes) -> bytes:
+    return original_data
