@@ -202,3 +202,54 @@ async def test_upload_url_requires_auth(client: AsyncClient, mock_storage: Async
         },
     )
     assert resp.status_code == 401
+
+
+async def test_confirm_upload(client: AsyncClient, create_user: Any, mock_storage: AsyncMock) -> None:  # noqa: ARG001
+    _, token = await create_user()
+
+    resp = await client.post(
+        "/media/upload-url",
+        json={
+            "kind": "document",
+            "context": "listing",
+            "filename": "spec.pdf",
+            "content_type": "application/pdf",
+            "file_size": 5000,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    media_id = resp.json()["media_id"]
+
+    confirm_resp = await client.post(
+        f"/media/{media_id}/confirm",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert confirm_resp.status_code == 200
+    data = confirm_resp.json()
+    assert data["status"] == "processing"
+
+
+async def test_confirm_rejects_non_uploader(client: AsyncClient, create_user: Any, mock_storage: AsyncMock) -> None:  # noqa: ARG001
+    _, token1 = await create_user(email="uploader@example.com")
+    _, token2 = await create_user(email="other@example.com", phone="+79001112233")
+
+    resp = await client.post(
+        "/media/upload-url",
+        json={
+            "kind": "photo",
+            "context": "user_profile",
+            "filename": "photo.jpg",
+            "content_type": "image/jpeg",
+            "file_size": 1024,
+        },
+        headers={"Authorization": f"Bearer {token1}"},
+    )
+    media_id = resp.json()["media_id"]
+
+    confirm_resp = await client.post(
+        f"/media/{media_id}/confirm",
+        headers={"Authorization": f"Bearer {token2}"},
+    )
+
+    assert confirm_resp.status_code == 403

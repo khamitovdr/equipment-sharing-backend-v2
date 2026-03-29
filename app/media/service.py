@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from app.core.config import get_settings
 from app.core.enums import MediaKind, MediaStatus
-from app.core.exceptions import AppValidationError
+from app.core.exceptions import AppValidationError, NotFoundError
 from app.media.models import Media
 from app.media.schemas import UploadUrlRequest, UploadUrlResponse
 from app.media.storage import StorageClient
@@ -66,3 +66,21 @@ async def request_upload_url(
         upload_url=upload_url,
         expires_in=expires,
     )
+
+
+@traced
+async def confirm_upload(
+    media: Media,
+    storage: StorageClient,
+) -> Media:
+    if media.status != MediaStatus.PENDING_UPLOAD:
+        raise AppValidationError(f"Media is in '{media.status}' state, expected 'pending_upload'")
+
+    if not await storage.exists(media.upload_key):
+        raise NotFoundError("Uploaded file not found in storage")
+
+    media.status = MediaStatus.PROCESSING
+    await media.save()
+
+    # TODO: enqueue ARQ job in Task 7
+    return media
