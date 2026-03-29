@@ -1,6 +1,6 @@
 from typing import Any
 from unittest.mock import AsyncMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
@@ -337,3 +337,76 @@ async def test_retry_failed_media(client: AsyncClient, create_user: Any, mock_st
     )
     assert retry_resp.status_code == 200
     assert retry_resp.json()["status"] == "processing"
+
+
+# ── Profile photo helpers & tests ────────────────────────
+
+
+async def _create_ready_photo(user_id: str, context: str = "user_profile") -> UUID:
+    """Create a ready photo media record for testing."""
+    user = await User.get(id=user_id)
+    media_id = uuid4()
+    media = await Media.create(
+        id=media_id,
+        uploaded_by=user,
+        kind=MediaKind.PHOTO,
+        context=MediaContext(context),
+        status=MediaStatus.READY,
+        original_filename="photo.jpg",
+        content_type="image/jpeg",
+        file_size=1024,
+        upload_key=f"pending/{media_id}/photo.jpg",
+        variants={"medium": f"media/{media_id}/medium.webp", "small": f"media/{media_id}/small.webp"},
+    )
+    return media.id
+
+
+async def test_update_user_with_profile_photo(client: AsyncClient, create_user: Any) -> None:
+    user_data, token = await create_user()
+    photo_id = await _create_ready_photo(user_data["id"])
+
+    resp = await client.patch(
+        "/users/me",
+        json={"profile_photo_id": str(photo_id)},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["profile_photo"] is not None
+    assert "medium_url" in resp.json()["profile_photo"]
+    assert "small_url" in resp.json()["profile_photo"]
+
+
+async def test_user_read_includes_profile_photo(client: AsyncClient, create_user: Any) -> None:
+    user_data, token = await create_user()
+    photo_id = await _create_ready_photo(user_data["id"])
+
+    await client.patch(
+        "/users/me",
+        json={"profile_photo_id": str(photo_id)},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    resp = await client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    assert resp.json()["profile_photo"] is not None
+
+
+async def test_remove_profile_photo(client: AsyncClient, create_user: Any) -> None:
+    user_data, token = await create_user()
+    photo_id = await _create_ready_photo(user_data["id"])
+
+    await client.patch(
+        "/users/me",
+        json={"profile_photo_id": str(photo_id)},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    resp = await client.patch(
+        "/users/me",
+        json={"profile_photo_id": None},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["profile_photo"] is None

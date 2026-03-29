@@ -1,10 +1,12 @@
 import re
 from datetime import datetime
 from typing import Literal, Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, model_validator
 
 from app.core.enums import UserRole
+from app.media.schemas import ProfilePhotoRead
 
 _PHONE_RE = re.compile(r"^(\+7|7|8)?[\s\-]?\(?[489]\d{2}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}$")
 
@@ -60,6 +62,7 @@ class UserUpdate(BaseModel):
     middle_name: str | None = None
     password: str | None = None
     new_password: str | None = None
+    profile_photo_id: UUID | None = None
 
     @field_validator("phone")
     @classmethod
@@ -98,6 +101,7 @@ class UserRead(BaseModel):
     surname: str
     role: UserRole
     created_at: datetime
+    profile_photo: ProfilePhotoRead | None = None
 
 
 class AdminRoleUpdate(BaseModel):

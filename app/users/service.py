@@ -1,4 +1,4 @@
-from app.core.enums import UserRole
+from app.core.enums import MediaOwnerType, UserRole
 from app.core.exceptions import (
     AccountSuspendedError,
     AlreadyExistsError,
@@ -7,6 +7,8 @@ from app.core.exceptions import (
 )
 from app.core.identifiers import create_with_short_id
 from app.core.security import create_access_token, hash_password, verify_password
+from app.media import service as media_service
+from app.media.storage import StorageClient
 from app.observability.events import emit_event
 from app.observability.metrics import auth_attempts
 from app.observability.tracing import traced
@@ -62,8 +64,8 @@ async def get_by_id(user_id: str) -> User:
 
 
 @traced
-async def update_me(user: User, data: UserUpdate) -> User:
-    update_data = data.model_dump(exclude_unset=True, exclude={"password", "new_password"})
+async def update_me(user: User, data: UserUpdate, storage: StorageClient) -> User:
+    update_data = data.model_dump(exclude_unset=True, exclude={"password", "new_password", "profile_photo_id"})
 
     if data.email is not None and data.email != user.email:
         existing = await User.filter(email=data.email).exists()
@@ -78,6 +80,16 @@ async def update_me(user: User, data: UserUpdate) -> User:
     for field, value in update_data.items():
         setattr(user, field, value)
     await user.save()
+
+    if "profile_photo_id" in data.model_fields_set:
+        await media_service.attach_profile_photo(
+            data.profile_photo_id,
+            MediaOwnerType.USER,
+            user.id,
+            user,
+            storage,
+        )
+
     return user
 
 

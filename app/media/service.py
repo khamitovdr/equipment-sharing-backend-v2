@@ -1,10 +1,10 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.core.config import get_settings
-from app.core.enums import MediaKind, MediaStatus
-from app.core.exceptions import AppValidationError, NotFoundError
+from app.core.enums import MediaKind, MediaOwnerType, MediaStatus
+from app.core.exceptions import AppValidationError, NotFoundError, PermissionDeniedError
 from app.media.models import Media
-from app.media.schemas import UploadUrlRequest, UploadUrlResponse
+from app.media.schemas import ProfilePhotoRead, UploadUrlRequest, UploadUrlResponse
 from app.media.storage import StorageClient
 from app.observability.tracing import traced
 from app.users.models import User
@@ -110,3 +110,70 @@ async def retry_media(media: Media) -> Media:
     await pool.enqueue_job("process_media_job", str(media.id))
 
     return media
+
+
+@traced
+async def get_profile_photo(
+    owner_type: MediaOwnerType,
+    owner_id: str,
+    storage: StorageClient,
+) -> ProfilePhotoRead | None:
+    """Get profile photo for an entity, generating presigned download URLs."""
+    media = await Media.filter(
+        owner_type=owner_type,
+        owner_id=owner_id,
+        kind=MediaKind.PHOTO,
+        status=MediaStatus.READY,
+    ).first()
+    if media is None:
+        return None
+
+    settings = get_settings()
+    expires = settings.storage.presigned_url_expiry_seconds
+
+    medium_key = media.variants.get("medium", "")
+    small_key = media.variants.get("small", "")
+
+    return ProfilePhotoRead(
+        id=media.id,
+        medium_url=await storage.generate_download_url(medium_key, expires) if medium_key else "",
+        small_url=await storage.generate_download_url(small_key, expires) if small_key else "",
+    )
+
+
+@traced
+async def attach_profile_photo(
+    media_id: UUID | None,
+    owner_type: MediaOwnerType,
+    owner_id: str,
+    user: User,
+    storage: StorageClient,
+) -> None:
+    """Attach a profile photo. Detaches existing photo (becomes orphan for cleanup)."""
+    _ = storage  # reserved for future use
+
+    # Detach any existing profile photo
+    await Media.filter(
+        owner_type=owner_type,
+        owner_id=owner_id,
+        kind=MediaKind.PHOTO,
+    ).update(owner_type=None, owner_id=None)
+
+    if media_id is None:
+        return
+
+    media = await Media.get_or_none(id=media_id).prefetch_related("uploaded_by")
+    if media is None:
+        raise NotFoundError("Media not found")
+    if media.status != MediaStatus.READY:
+        raise AppValidationError("Media is not ready")
+
+    uploader: User = media.uploaded_by
+    if uploader.id != user.id:
+        raise PermissionDeniedError("You can only attach your own uploads")
+    if media.kind != MediaKind.PHOTO:
+        raise AppValidationError("Only photos can be used as profile photo")
+
+    media.owner_type = owner_type
+    media.owner_id = owner_id
+    await media.save()

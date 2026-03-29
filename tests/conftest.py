@@ -243,7 +243,7 @@ async def renter_token(create_user: Any) -> str:
     return str(token)
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_storage() -> Generator[AsyncMock]:
     mock = AsyncMock()
     mock.generate_upload_url.return_value = "https://minio:9000/bucket/pending/test/file?X-Amz-Signature=abc"
