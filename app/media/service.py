@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from pathlib import PurePosixPath
 from uuid import UUID, uuid4
 
 from app.core.config import get_settings
@@ -51,7 +52,10 @@ async def request_upload_url(
         raise AppValidationError(f"File size exceeds maximum of {max_size // (1024 * 1024)} MB for {data.kind.value}")
 
     media_id = uuid4()
-    upload_key = f"pending/{media_id}/{data.filename}"
+    safe_filename = PurePosixPath(data.filename).name
+    if not safe_filename:
+        raise AppValidationError("Invalid filename")
+    upload_key = f"pending/{media_id}/{safe_filename}"
 
     await Media.create(
         id=media_id,
@@ -59,7 +63,7 @@ async def request_upload_url(
         kind=data.kind,
         context=data.context,
         status=MediaStatus.PENDING_UPLOAD,
-        original_filename=data.filename,
+        original_filename=safe_filename,
         content_type=data.content_type,
         file_size=data.file_size,
         upload_key=upload_key,
@@ -126,6 +130,7 @@ async def cleanup_orphaned_media(storage: StorageClient, max_age_hours: int = 24
     orphans = await Media.filter(
         owner_type=None,
         created_at__lt=cutoff,
+        status__not=MediaStatus.FAILED,
     ).all()
 
     count = 0
@@ -230,7 +235,7 @@ async def attach_listing_media(
     storage: StorageClient,
 ) -> None:
     """Attach media to a listing. Detaches all current media first (removed ones become orphans)."""
-    _ = storage, user  # reserved for future use
+    _ = storage  # reserved for future use
     settings = get_settings()
 
     if len(photo_ids) > settings.media.listing_limits_max_photos:
@@ -253,9 +258,12 @@ async def attach_listing_media(
         *[(did, MediaKind.DOCUMENT) for did in document_ids],
     ]
     for position, (media_id, expected_kind) in enumerate(all_ids_with_kind):
-        media = await Media.get_or_none(id=media_id)
+        media = await Media.get_or_none(id=media_id).prefetch_related("uploaded_by")
         if media is None:
             raise NotFoundError(f"Media {media_id} not found")
+        uploader: User = media.uploaded_by
+        if uploader.id != user.id:
+            raise PermissionDeniedError(f"Media {media_id} was not uploaded by you")
         if media.status != MediaStatus.READY:
             raise AppValidationError(f"Media {media_id} is not ready")
         if media.kind != expected_kind:

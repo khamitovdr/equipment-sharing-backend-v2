@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any, ClassVar, cast
 from uuid import UUID
 
-from arq import create_pool, run_worker
+from arq import create_pool, func, run_worker
 from arq.connections import ArqRedis, RedisSettings
 from arq.cron import cron
 from arq.typing import WorkerCoroutine
@@ -15,6 +15,12 @@ from app.media.processing import process_photo
 from app.media.storage import StorageClient
 
 logger = logging.getLogger(__name__)
+
+_CONTEXT_TO_VARIANT_SET: dict[str, str] = {
+    "user_profile": "profile",
+    "org_profile": "profile",
+    "listing": "listing",
+}
 
 
 def _get_storage() -> StorageClient:
@@ -29,11 +35,11 @@ def _get_storage() -> StorageClient:
 
 def _get_variant_specs(media: Media) -> list[dict[str, Any]]:
     settings = get_settings()
-    context = media.context.value
+    variant_key = _CONTEXT_TO_VARIANT_SET.get(media.context.value, media.context.value)
     if media.kind == MediaKind.PHOTO:
-        return list(settings.media.photo_variant_sets.get(context, []))
+        return list(settings.media.photo_variant_sets.get(variant_key, []))
     if media.kind == MediaKind.VIDEO:
-        return list(settings.media.video_variant_sets.get(context, []))
+        return list(settings.media.video_variant_sets.get(variant_key, []))
     return []
 
 
@@ -139,7 +145,7 @@ async def cleanup_orphans_cron(_ctx: dict[Any, Any]) -> None:
 
 
 class WorkerSettings:
-    functions: ClassVar[list[Any]] = [process_media_job]
+    functions: ClassVar[list[Any]] = [func(cast("WorkerCoroutine", process_media_job), max_tries=3)]
     cron_jobs: ClassVar[list[Any]] = [
         cron(cast("WorkerCoroutine", cleanup_orphans_cron), minute={0}),
     ]
