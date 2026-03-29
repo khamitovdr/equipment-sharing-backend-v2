@@ -82,5 +82,9 @@ async def confirm_upload(
     media.status = MediaStatus.PROCESSING
     await media.save()
 
-    # TODO: enqueue ARQ job in Task 7
+    from app.media.worker import get_arq_pool
+
+    pool = await get_arq_pool()
+    await pool.enqueue_job("process_media_job", str(media.id))
+
     return media

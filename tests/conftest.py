@@ -252,3 +252,14 @@ def mock_storage() -> Generator[AsyncMock]:
     app.dependency_overrides[get_storage] = lambda: mock
     yield mock
     app.dependency_overrides.pop(get_storage, None)
+
+
+@pytest.fixture(autouse=True)
+def mock_arq_pool(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_pool = AsyncMock()
+    mock_pool.enqueue_job = AsyncMock()
+
+    async def _mock_get_pool() -> AsyncMock:
+        return mock_pool
+
+    monkeypatch.setattr("app.media.worker.get_arq_pool", _mock_get_pool)
