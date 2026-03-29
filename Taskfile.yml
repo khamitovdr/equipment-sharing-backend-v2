@@ -51,6 +51,11 @@ tasks:
     cmds:
       - poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 {{.CLI_ARGS}}
 
+  worker:
+    desc: Start the ARQ media worker
+    cmds:
+      - poetry run python -m app.media.worker {{.CLI_ARGS}}
+
   # ── Lint & Format ──────────────────────────────────────
   lint:
     desc: Check linting (no auto-fix)
