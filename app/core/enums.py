@@ -53,3 +53,28 @@ class OrderAction(StrEnum):
     CANCEL_BY_ORG = "cancel_by_org"
     ACTIVATE = "activate"
     FINISH = "finish"
+
+
+class MediaKind(StrEnum):
+    PHOTO = "photo"
+    VIDEO = "video"
+    DOCUMENT = "document"
+
+
+class MediaOwnerType(StrEnum):
+    USER = "user"
+    ORGANIZATION = "organization"
+    LISTING = "listing"
+
+
+class MediaContext(StrEnum):
+    USER_PROFILE = "user_profile"
+    ORG_PROFILE = "org_profile"
+    LISTING = "listing"
+
+
+class MediaStatus(StrEnum):
+    PENDING_UPLOAD = "pending_upload"
+    PROCESSING = "processing"
+    READY = "ready"
+    FAILED = "failed"

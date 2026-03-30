@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, model_validator
 
 from app.core.enums import MembershipRole, MembershipStatus, OrganizationStatus
+from app.media.schemas import ProfilePhotoRead
 
 _INN_RE = re.compile(r"^\d{10}$|^\d{12}$")
 
@@ -68,6 +69,11 @@ class OrganizationRead(BaseModel):
     main_activity: str | None
     status: OrganizationStatus
     contacts: list[ContactRead]
+    photo: ProfilePhotoRead | None = None
+
+
+class OrganizationPhotoUpdate(BaseModel):
+    photo_id: UUID | None = None
 
 
 class ContactsReplace(BaseModel):

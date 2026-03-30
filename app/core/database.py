@@ -5,6 +5,7 @@ MODELS = [
     "app.organizations.models",
     "app.listings.models",
     "app.orders.models",
+    "app.media.models",
 ]
 
 

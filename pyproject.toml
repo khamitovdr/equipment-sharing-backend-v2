@@ -23,6 +23,10 @@ opentelemetry-sdk = "*"
 opentelemetry-exporter-otlp-proto-grpc = "*"
 opentelemetry-instrumentation-fastapi = "*"
 opentelemetry-instrumentation-asyncpg = "*"
+aioboto3 = "^15.5.0"
+arq = "^0.27.0"
+pillow = "^12.1.1"
+ffmpeg-python = "^0.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
@@ -80,6 +84,7 @@ ignore = [
 "tests/**" = [
     "S101",
     "S106",
+    "S108",
     "PT018",
     "SLF001",
     "PT011",
@@ -123,6 +128,18 @@ disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
 module = ["grpc.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["aioboto3.*", "aiobotocore.*", "boto3.*", "botocore.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["arq.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["ffmpeg.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

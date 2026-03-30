@@ -39,6 +39,42 @@ class ObservabilitySettings(BaseModel):
     metrics_export_interval_seconds: int = 30
 
 
+class StorageSettings(BaseModel):
+    endpoint_url: str = "http://localhost:9000"
+    bucket: str = "rental-media"
+    presigned_url_expiry_seconds: int = 3600
+    access_key: str = ""
+    secret_key: str = ""
+
+
+class MediaSettings(BaseModel):
+    max_photo_size_mb: int = 20
+    max_video_size_mb: int = 500
+    max_document_size_mb: int = 50
+    allowed_photo_types: list[str] = ["image/jpeg", "image/png", "image/webp", "image/heic"]
+    allowed_video_types: list[str] = ["video/mp4", "video/quicktime", "video/webm"]
+    allowed_document_types: list[str] = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "text/plain",
+        "text/csv",
+    ]
+    orphan_cleanup_after_hours: int = 24
+    orphan_cleanup_interval_minutes: int = 60
+    photo_variant_sets: dict[str, list[dict[str, int | str]]] = {}
+    video_variant_sets: dict[str, list[dict[str, int | str | bool]]] = {}
+    listing_limits_max_photos: int = 20
+    listing_limits_max_videos: int = 5
+    listing_limits_max_documents: int = 10
+
+
+class WorkerSettings(BaseModel):
+    redis_url: str = "redis://localhost:6379"
+    max_concurrent_jobs: int = 10
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_nested_delimiter="__", env_file=".env", env_file_encoding="utf-8")
 
@@ -49,6 +85,9 @@ class Settings(BaseSettings):
     observability: ObservabilitySettings = ObservabilitySettings()
     dadata_api_key: str = ""
     seed_categories: list[str] = []
+    storage: StorageSettings = StorageSettings()
+    media: MediaSettings = MediaSettings()
+    worker: WorkerSettings = WorkerSettings()
 
     @classmethod
     def settings_customise_sources(
